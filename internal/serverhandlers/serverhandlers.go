@@ -9,6 +9,7 @@ import (
 )
 
 func HandlerOther(res http.ResponseWriter, req *http.Request) {
+	res.Header().Set("Content-Type", "text/plain")
 	res.WriteHeader(http.StatusBadRequest)
 }
 

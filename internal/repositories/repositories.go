@@ -11,10 +11,23 @@ type MemStorage struct {
 	counters map[string]int64
 }
 
-func NewMemStorage() *MemStorage {
+func NewDefaultMemStorage() *MemStorage {
 	return &MemStorage{
 		gauges:   make(map[string]float64),
 		counters: make(map[string]int64),
+	}
+}
+
+func NewMemStorage(gauges_ map[string]float64,counters_ map[string]int64) *MemStorage {
+	if gauges_ == nil{
+		gauges_ = make(map[string]float64)
+	}
+	if counters_ == nil{
+		counters_ = make(map[string]int64)
+	}
+	return &MemStorage{
+		gauges:   gauges_,
+		counters: counters_,
 	}
 }
 
