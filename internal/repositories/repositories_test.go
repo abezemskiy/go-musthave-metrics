@@ -1,8 +1,11 @@
 package repositories
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewDefaultMemStorage(t *testing.T) {
@@ -93,7 +96,7 @@ func TestNewMemStorage(t *testing.T) {
 	}
 }
 
-func TestAddGauge(t *testing.T) {
+func TestMemStorageAddGauge(t *testing.T) {
 	type args struct {
 		stor  *MemStorage
 		name  string
@@ -130,7 +133,7 @@ func TestAddGauge(t *testing.T) {
 	}
 }
 
-func TestAddCounter(t *testing.T) {
+func TestMemStorageAddCounter(t *testing.T) {
 	type args struct {
 		stor  *MemStorage
 		name  string
@@ -163,6 +166,133 @@ func TestAddCounter(t *testing.T) {
 			if !reflect.DeepEqual(*tt.args.stor, *tt.want) {
 				t.Errorf("NewDefaultMemStorage() = %v, want %v", *tt.args.stor, *tt.want)
 			}
+		})
+	}
+}
+
+func TestMemStorageGetMetric(t *testing.T) {
+	type fields struct {
+		gauges   map[string]float64
+		counters map[string]int64
+	}
+	type args struct {
+		metricType string
+		name       string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "Correct get gauge #1",
+			fields: fields{
+				gauges:   map[string]float64{"gauge1": 17.77, "gauge2": 14.9},
+				counters: map[string]int64{"counter1": 100, "counter2": 7},
+			},
+			args: args{
+				metricType: "gauge",
+				name:       "gauge1",
+			},
+			want:    fmt.Sprintf("%g", 17.77),
+			wantErr: false,
+		},
+		{
+			name: "Correct get gauge #2",
+			fields: fields{
+				gauges:   map[string]float64{"gauge1": 17.77, "gauge2": 14.9},
+				counters: map[string]int64{"counter1": 100, "counter2": 7},
+			},
+			args: args{
+				metricType: "gauge",
+				name:       "gauge2",
+			},
+			want:    fmt.Sprintf("%g", 14.9),
+			wantErr: false,
+		},
+		{
+			name: "Whrong get gauge #1",
+			fields: fields{
+				gauges:   map[string]float64{"gauge1": 17.77, "gauge2": 14.9},
+				counters: map[string]int64{"counter1": 100, "counter2": 7},
+			},
+			args: args{
+				metricType: "gauge",
+				name:       "gauge3",
+			},
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name: "Correct get counter #1",
+			fields: fields{
+				gauges:   map[string]float64{"gauge1": 17.77, "gauge2": 14.9},
+				counters: map[string]int64{"counter1": 100, "counter2": 7},
+			},
+			args: args{
+				metricType: "counter",
+				name:       "counter1",
+			},
+			want:    "100",
+			wantErr: false,
+		},
+		{
+			name: "Whrong get counter #1",
+			fields: fields{
+				gauges:   map[string]float64{"gauge1": 17.77, "gauge2": 14.9},
+				counters: map[string]int64{"counter1": 100, "counter2": 7},
+			},
+			args: args{
+				metricType: "counter",
+				name:       "counter100",
+			},
+			want:    "",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			storage := &MemStorage{
+				gauges:   tt.fields.gauges,
+				counters: tt.fields.counters,
+			}
+			got, err := storage.GetMetric(tt.args.metricType, tt.args.name)
+			if !tt.wantErr {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, got, tt.want)
+		})
+	}
+}
+
+func TestMemStorageGetAllMetrics(t *testing.T) {
+	type fields struct {
+		gauges   map[string]float64
+		counters map[string]int64
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   string
+	}{
+		{
+			name: "Correct get metrics #1",
+			fields: fields{
+				gauges:   map[string]float64{"gauge1": 17.77},
+				counters: map[string]int64{},
+			},
+			want: "gauge1 17.77\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			storage := &MemStorage{
+				gauges:   tt.fields.gauges,
+				counters: tt.fields.counters,
+			}
+			assert.Equal(t, tt.want, storage.GetAllMetrics())
 		})
 	}
 }

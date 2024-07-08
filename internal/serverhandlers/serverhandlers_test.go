@@ -6,10 +6,12 @@ import (
 	"testing"
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
+	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestHandlerOther(t *testing.T) {
+
 	type want struct {
 		code        int
 		contentType string
@@ -23,7 +25,7 @@ func TestHandlerOther(t *testing.T) {
 			name:    "Global addres",
 			request: "/",
 			want: want{
-				code:        400,
+				code:        404,
 				contentType: "text/plain",
 			},
 		},
@@ -31,7 +33,7 @@ func TestHandlerOther(t *testing.T) {
 			name:    "Whrong addres",
 			request: "/whrong",
 			want: want{
-				code:        400,
+				code:        404,
 				contentType: "text/plain",
 			},
 		},
@@ -39,7 +41,7 @@ func TestHandlerOther(t *testing.T) {
 			name:    "Mistake addres",
 			request: "/updat",
 			want: want{
-				code:        400,
+				code:        404,
 				contentType: "text/plain",
 			},
 		},
@@ -136,7 +138,7 @@ func TestHandlerUpdate(t *testing.T) {
 			arg:     *stor,
 			request: "/update/counter/testcount1/",
 			want: want{
-				code:        400,
+				code:        404,
 				contentType: "text/plain",
 				storage:     *repositories.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
@@ -162,11 +164,11 @@ func TestHandlerUpdate(t *testing.T) {
 			},
 		},
 		{
-			name:    "Guage errort#1",
+			name:    "Guage errort#2",
 			arg:     *stor,
 			request: "/update/gauge/testguage1/",
 			want: want{
-				code:        400,
+				code:        404,
 				contentType: "text/plain",
 				storage:     *repositories.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
@@ -204,15 +206,20 @@ func TestHandlerUpdate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			r := chi.NewRouter()
+			r.Post("/update/{metricType}/{metricName}/{metricValue}", func(res http.ResponseWriter, req *http.Request) {
+				HandlerUpdate(res, req, &tt.arg)
+			})
+
 			request := httptest.NewRequest(http.MethodPost, tt.request, nil)
 			w := httptest.NewRecorder()
-			HandlerUpdate(w, request, &tt.arg)
+			r.ServeHTTP(w, request)
 
 			res := w.Result()
 			defer res.Body.Close() // Закрываем тело ответа
 			// проверяем код ответа
 			assert.Equal(t, tt.want.code, res.StatusCode)
-			assert.Equal(t, tt.want.storage, *stor)
+			assert.Equal(t, tt.want.storage, tt.arg)
 		})
 	}
 }
