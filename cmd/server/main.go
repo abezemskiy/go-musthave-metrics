@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"log"
 	"net/http"
 
@@ -11,16 +10,9 @@ import (
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/serverhandlers"
 )
 
-var addr = &NetAddress{
-	Host: "localhost",
-	Port: 8080,
-}
-
 func MetricRouter(stor repositories.Repositories) chi.Router {
 
 	r := chi.NewRouter()
-
-	//fmt.Println("start server")
 
 	r.Route("/", func(r chi.Router) {
 		r.Get("/", func(res http.ResponseWriter, req *http.Request) {
@@ -46,14 +38,9 @@ func MetricRouter(stor repositories.Repositories) chi.Router {
 }
 
 func main() {
-	// если интерфейс не реализован,
-	// здесь будет ошибка компиляции
-	_ = flag.Value(addr)
-	// проверка реализации
-	flag.Var(addr, "a", "Net address host:port")
-	flag.Parse()
+	parseFlags()
 
 	storage := repositories.NewDefaultMemStorage()
 
-	log.Fatal(http.ListenAndServe(addr.String(), MetricRouter(storage)))
+	log.Fatal(http.ListenAndServe(flagNetAddr, MetricRouter(storage)))
 }

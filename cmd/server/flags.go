@@ -1,30 +1,20 @@
 package main
 
 import (
-	"errors"
-	"strconv"
-	"strings"
+	"flag"
+	"os"
 )
 
-type NetAddress struct {
-	Host string
-	Port int
-}
+var flagNetAddr string
 
-func (a NetAddress) String() string {
-	return a.Host + ":" + strconv.Itoa(a.Port)
-}
+func parseFlags() {
+	flag.StringVar(&flagNetAddr, "a", ":8080", "address and port to run server")
+	flag.Parse()
 
-func (a *NetAddress) Set(s string) error {
-	hp := strings.Split(s, ":")
-	if len(hp) != 2 {
-		return errors.New("need address in a form host:port")
+	// для случаев, когда в переменной окружения ADDRESS присутствует непустое значение,
+	// переопределим адрес запуска сервера,
+	// даже если он был передан через аргумент командной строки
+	if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
+		flagNetAddr = envRunAddr
 	}
-	port, err := strconv.Atoi(hp[1])
-	if err != nil {
-		return err
-	}
-	a.Host = hp[0]
-	a.Port = port
-	return nil
 }
