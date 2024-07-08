@@ -2,6 +2,7 @@ package agenthandlers
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"runtime"
 	"strconv"
@@ -11,10 +12,18 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
-const (
-	pollInterval   = 2
-	reportInterval = 10
+var (
+	pollInterval   time.Duration = 2
+	reportInterval time.Duration = 10
 )
+
+func SetPollInterval(interval time.Duration) {
+	pollInterval = interval
+}
+
+func SetReportInterval(interval time.Duration) {
+	reportInterval = interval
+}
 
 // MetricsStats структура для хранения метрик
 type MetricsStats struct {
@@ -114,6 +123,7 @@ func PushMetricsTimer(address, action string, metrics *MetricsStats) {
 	for {
 		client := resty.New()
 		PushMetrics(address, action, metrics, client)
+		log.Print("Push metrics\n")
 		time.Sleep(reportInterval * time.Second)
 	}
 }
