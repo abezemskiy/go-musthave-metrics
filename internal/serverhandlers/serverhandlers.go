@@ -10,18 +10,12 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func HandlerOther(res http.ResponseWriter, req *http.Request) {
-	res.Header().Set("Content-Type", "text/plain")
-	res.WriteHeader(http.StatusNotFound)
-}
+var (
+	tmpl *template.Template
+)
 
-func GetGlobal(res http.ResponseWriter, req *http.Request, storage repositories.Repositories) {
-	res.Header().Set("Content-Type", "text/html")
-	res.WriteHeader(http.StatusOK)
-
-	metrics := storage.GetAllMetrics()
-
-	tmpl := template.Must(template.New("example").Parse(`
+func init() {
+	tmpl = template.Must(template.New("example").Parse(`
         <!DOCTYPE html>
         <html lang="en">
         <head>
@@ -33,8 +27,20 @@ func GetGlobal(res http.ResponseWriter, req *http.Request, storage repositories.
         </body>
         </html>
     `))
-	err := tmpl.Execute(res, metrics)
+}
 
+func HandlerOther(res http.ResponseWriter, req *http.Request) {
+	res.Header().Set("Content-Type", "text/plain")
+	res.WriteHeader(http.StatusNotFound)
+}
+
+func GetGlobal(res http.ResponseWriter, req *http.Request, storage repositories.Repositories) {
+	res.Header().Set("Content-Type", "text/html")
+	res.WriteHeader(http.StatusOK)
+
+	metrics := storage.GetAllMetrics()
+
+	err := tmpl.Execute(res, metrics)
 	if err != nil {
 		log.Printf("Template execute error in GetGlobal handler: %v\n", err)
 	}
