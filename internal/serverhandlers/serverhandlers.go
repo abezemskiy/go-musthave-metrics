@@ -34,7 +34,10 @@ func GetGlobal(res http.ResponseWriter, req *http.Request, storage repositories.
         </html>
     `))
 	err := tmpl.Execute(res, metrics)
-	log.Print(err)
+
+	if err != nil {
+		log.Printf("Template execute error in GetGlobal handler: %v\n", err)
+	}
 }
 
 func GetMetric(res http.ResponseWriter, req *http.Request, storage repositories.Repositories) {
@@ -45,9 +48,17 @@ func GetMetric(res http.ResponseWriter, req *http.Request, storage repositories.
 	value, err := storage.GetMetric(metricType, metricName)
 	if err != nil {
 		res.WriteHeader(http.StatusNotFound)
+		return
 	}
-	_, er := res.Write([]byte(value))
-	log.Print(er)
+
+	n, err := res.Write([]byte(value))
+	if err != nil {
+		log.Printf("Write error in GetMetric handler: %v\n", err)
+		return
+	}
+	if n < len(value) {
+		log.Printf("Not all bytes were written in GetMetric handler. Written: %d, Total: %d", n, len(value))
+	}
 }
 
 // Благодаря использованию роутера chi в этот хэндлер будут попадать только запросы POST
@@ -63,7 +74,7 @@ func HandlerUpdate(res http.ResponseWriter, req *http.Request, storage repositor
 	metricType := chi.URLParam(req, "metricType")
 	metricName := chi.URLParam(req, "metricName")
 	metricValue := chi.URLParam(req, "metricValue")
-	
+
 	if metricName == "" {
 		res.WriteHeader(http.StatusNotFound)
 		return
