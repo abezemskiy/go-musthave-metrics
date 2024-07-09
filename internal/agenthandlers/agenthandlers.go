@@ -52,7 +52,6 @@ func CollectMetricsTimer(metrics *MetricsStats) {
 // Push отправляет метрику на сервер и возвращает ошибку при неудаче
 func Push(address, action, typemetric, namemetric, valuemetric string, client *resty.Client) error {
 	url := fmt.Sprintf("%s/%s/%s/%s/%s", address, action, typemetric, namemetric, valuemetric)
-	//resp, err := http.Post(url, "text/plain", nil)
 	resp, err := client.R().
 		SetHeader("Content-Type", "text/plain").
 		Post(url)
@@ -60,7 +59,6 @@ func Push(address, action, typemetric, namemetric, valuemetric string, client *r
 	if err != nil {
 		return fmt.Errorf("error with post: %s, %w", url, err)
 	}
-	//defer resp.Body.Close()
 
 	if resp.StatusCode() != http.StatusOK {
 		return fmt.Errorf("received non-200 response status: %d for url: %s", resp.StatusCode(), url)

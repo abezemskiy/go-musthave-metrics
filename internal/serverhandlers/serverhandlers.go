@@ -63,8 +63,7 @@ func HandlerUpdate(res http.ResponseWriter, req *http.Request, storage repositor
 	metricType := chi.URLParam(req, "metricType")
 	metricName := chi.URLParam(req, "metricName")
 	metricValue := chi.URLParam(req, "metricValue")
-
-	//fmt.Printf("URL is: metricType: %s, metricName: %s, metricValue: %s\n", metricType, metricName, metricValue)
+	
 	if metricName == "" {
 		res.WriteHeader(http.StatusNotFound)
 		return
