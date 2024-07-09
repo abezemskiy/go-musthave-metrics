@@ -42,5 +42,9 @@ func main() {
 
 	storage := repositories.NewDefaultMemStorage()
 
-	log.Fatal(http.ListenAndServe(flagNetAddr, MetricRouter(storage)))
+	err := http.ListenAndServe(flagNetAddr, MetricRouter(storage))
+
+	if err != nil {
+		log.Printf("Error starting server: %v\n", err)
+	}
 }
