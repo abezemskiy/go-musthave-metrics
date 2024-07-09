@@ -12,8 +12,5 @@ func main() {
 	var metrics agenthandlers.MetricsStats
 	go agenthandlers.CollectMetricsTimer(&metrics)
 	time.Sleep(50 * time.Millisecond)
-	go agenthandlers.PushMetricsTimer("http://"+flagNetAddr, "update", &metrics)
-
-	// блокировка main, чтобы функции бесконечно выполнялись
-	select {}
+	agenthandlers.PushMetricsTimer("http://"+flagNetAddr, "update", &metrics)
 }
