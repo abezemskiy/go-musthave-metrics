@@ -1,4 +1,4 @@
-package agenthandlers
+package handlers
 
 import (
 	"testing"

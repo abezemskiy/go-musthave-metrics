@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agenthandlers"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/handlers"
 )
 
 var flagNetAddr string
@@ -46,6 +46,6 @@ func parseFlags() {
 		*pollInterval = val
 	}
 
-	agenthandlers.SetReportInterval(time.Duration(*reportInterval))
-	agenthandlers.SetPollInterval(time.Duration(*pollInterval))
+	handlers.SetReportInterval(time.Duration(*reportInterval))
+	handlers.SetPollInterval(time.Duration(*pollInterval))
 }
