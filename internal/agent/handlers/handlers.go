@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"runtime"
 	"strconv"
-	"sync"
 	"time"
 
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/storage"
 	"github.com/go-resty/resty/v2"
 )
 
@@ -25,26 +24,17 @@ func SetReportInterval(interval time.Duration) {
 	reportInterval = interval
 }
 
-// MetricsStats структура для хранения метрик
-type MetricsStats struct {
-	sync.Mutex
-	runtime.MemStats
-	PollCount   int64
-	RandomValue float64
-}
-
 // CollectMetrics собирает метрики
-func CollectMetrics(metrics *MetricsStats) {
+func SyncCollectMetrics(metrics *storage.MetricsStats) {
 	metrics.Lock()
 	defer metrics.Unlock()
-	metrics.PollCount++
-	runtime.ReadMemStats(&metrics.MemStats)
+	metrics.CollectMetrics()
 }
 
 // CollectMetricsTimer запускает сбор метрик с интервалом
-func CollectMetricsTimer(metrics *MetricsStats) {
+func CollectMetricsTimer(metrics *storage.MetricsStats) {
 	for {
-		CollectMetrics(metrics)
+		SyncCollectMetrics(metrics)
 		time.Sleep(pollInterval * time.Second)
 	}
 }
@@ -67,7 +57,7 @@ func Push(address, action, typemetric, namemetric, valuemetric string, client *r
 }
 
 // PushMetrics отправляет все метрики
-func PushMetrics(address, action string, metrics *MetricsStats, client *resty.Client) {
+func PushMetrics(address, action string, metrics *storage.MetricsStats, client *resty.Client) {
 	metrics.Lock()
 	defer metrics.Unlock()
 
@@ -117,7 +107,7 @@ func PushMetrics(address, action string, metrics *MetricsStats, client *resty.Cl
 }
 
 // PushMetricsTimer запускает отправку метрик с интервалом
-func PushMetricsTimer(address, action string, metrics *MetricsStats) {
+func PushMetricsTimer(address, action string, metrics *storage.MetricsStats) {
 	for {
 		client := resty.New()
 		PushMetrics(address, action, metrics, client)

@@ -1,4 +1,4 @@
-package handlers
+package storage
 
 import (
 	"testing"
@@ -30,7 +30,7 @@ func TestCollectMetrics(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			CollectMetrics(tt.arg)
+			tt.arg.CollectMetrics()
 			assert.Equal(t, tt.want, tt.arg.PollCount)
 		})
 	}

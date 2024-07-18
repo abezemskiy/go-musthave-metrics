@@ -1,10 +1,10 @@
 linters:
   enable:
     - govet
-    - golint
     - gosec
     - ineffassign
     - unparam
+    - revive
 
 run:
   timeout: 5m

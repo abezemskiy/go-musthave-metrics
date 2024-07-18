@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 )
@@ -61,15 +61,15 @@ func TestHandlerOther(t *testing.T) {
 }
 
 func TestHandlerUpdate(t *testing.T) {
-	stor := repositories.NewMemStorage(nil, map[string]int64{"testcount1": 1})
+	stor := storage.NewMemStorage(nil, map[string]int64{"testcount1": 1})
 	type want struct {
 		code        int
 		contentType string
-		storage     repositories.MemStorage
+		storage     storage.MemStorage
 	}
 	tests := []struct {
 		name    string
-		arg     repositories.MemStorage
+		arg     storage.MemStorage
 		request string
 		want    want
 	}{
@@ -80,7 +80,7 @@ func TestHandlerUpdate(t *testing.T) {
 			want: want{
 				code:        200,
 				contentType: "text/plain",
-				storage:     *repositories.NewMemStorage(nil, map[string]int64{"testcount1": 4}),
+				storage:     *storage.NewMemStorage(nil, map[string]int64{"testcount1": 4}),
 			},
 		},
 		{
@@ -90,7 +90,7 @@ func TestHandlerUpdate(t *testing.T) {
 			want: want{
 				code:        200,
 				contentType: "text/plain",
-				storage:     *repositories.NewMemStorage(nil, map[string]int64{"testcount1": 4, "testcount2": 1}),
+				storage:     *storage.NewMemStorage(nil, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
 		},
 		{
@@ -100,7 +100,7 @@ func TestHandlerUpdate(t *testing.T) {
 			want: want{
 				code:        200,
 				contentType: "text/plain",
-				storage:     *repositories.NewMemStorage(map[string]float64{"testgauge1": 1}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+				storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 1}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
 		},
 		{
@@ -110,7 +110,7 @@ func TestHandlerUpdate(t *testing.T) {
 			want: want{
 				code:        200,
 				contentType: "text/plain",
-				storage:     *repositories.NewMemStorage(map[string]float64{"testgauge1": 3}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+				storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 3}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
 		},
 		{
@@ -120,7 +120,7 @@ func TestHandlerUpdate(t *testing.T) {
 			want: want{
 				code:        200,
 				contentType: "text/plain",
-				storage:     *repositories.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+				storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
 		},
 		{
@@ -130,7 +130,7 @@ func TestHandlerUpdate(t *testing.T) {
 			want: want{
 				code:        400,
 				contentType: "text/plain",
-				storage:     *repositories.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+				storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
 		},
 		{
@@ -140,7 +140,7 @@ func TestHandlerUpdate(t *testing.T) {
 			want: want{
 				code:        404,
 				contentType: "text/plain",
-				storage:     *repositories.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+				storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
 		},
 		{
@@ -150,7 +150,7 @@ func TestHandlerUpdate(t *testing.T) {
 			want: want{
 				code:        400,
 				contentType: "text/plain",
-				storage:     *repositories.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+				storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
 		},
 		{
@@ -160,7 +160,7 @@ func TestHandlerUpdate(t *testing.T) {
 			want: want{
 				code:        400,
 				contentType: "text/plain",
-				storage:     *repositories.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+				storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
 		},
 		{
@@ -170,7 +170,7 @@ func TestHandlerUpdate(t *testing.T) {
 			want: want{
 				code:        404,
 				contentType: "text/plain",
-				storage:     *repositories.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+				storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
 		},
 		{
@@ -180,7 +180,7 @@ func TestHandlerUpdate(t *testing.T) {
 			want: want{
 				code:        400,
 				contentType: "text/plain",
-				storage:     *repositories.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+				storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
 		},
 		{
@@ -190,7 +190,7 @@ func TestHandlerUpdate(t *testing.T) {
 			want: want{
 				code:        404,
 				contentType: "text/plain",
-				storage:     *repositories.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+				storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
 		},
 		{
@@ -200,7 +200,7 @@ func TestHandlerUpdate(t *testing.T) {
 			want: want{
 				code:        200,
 				contentType: "text/plain",
-				storage:     *repositories.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10, "alloc": 233184}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+				storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10, "alloc": 233184}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
 		},
 	}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/handlers"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/storage"
 )
 
 func MetricRouter(stor repositories.Repositories) chi.Router {
@@ -40,7 +41,7 @@ func MetricRouter(stor repositories.Repositories) chi.Router {
 func main() {
 	parseFlags()
 
-	storage := repositories.NewDefaultMemStorage()
+	storage := storage.NewDefaultMemStorage()
 
 	err := http.ListenAndServe(flagNetAddr, MetricRouter(storage))
 
