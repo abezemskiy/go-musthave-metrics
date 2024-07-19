@@ -2,13 +2,14 @@ package handlers
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/logger"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/storage"
 	"github.com/go-resty/resty/v2"
+	"go.uber.org/zap"
 )
 
 var (
@@ -111,7 +112,7 @@ func PushMetricsTimer(address, action string, metrics *storage.MetricsStats) {
 	for {
 		client := resty.New()
 		PushMetrics(address, action, metrics, client)
-		log.Print("Push metrics\n")
+		logger.AgentLog.Debug("Running agent", zap.String("action", "push metrics"))
 		time.Sleep(reportInterval * time.Second)
 	}
 }

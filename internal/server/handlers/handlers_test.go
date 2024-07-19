@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestHandlerOther(t *testing.T) {
+func TestOtherRequest(t *testing.T) {
 
 	type want struct {
 		code        int
@@ -50,7 +50,7 @@ func TestHandlerOther(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodGet, tt.request, nil)
 			w := httptest.NewRecorder()
-			HandlerOther(w, request)
+			OtherRequest(w, request)
 
 			res := w.Result()
 			defer res.Body.Close() // Закрываем тело ответа
@@ -60,7 +60,7 @@ func TestHandlerOther(t *testing.T) {
 	}
 }
 
-func TestHandlerUpdate(t *testing.T) {
+func TestUpdateMetrics(t *testing.T) {
 	stor := storage.NewMemStorage(nil, map[string]int64{"testcount1": 1})
 	type want struct {
 		code        int
@@ -208,7 +208,7 @@ func TestHandlerUpdate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := chi.NewRouter()
 			r.Post("/update/{metricType}/{metricName}/{metricValue}", func(res http.ResponseWriter, req *http.Request) {
-				HandlerUpdate(res, req, &tt.arg)
+				UpdateMetrics(res, req, &tt.arg)
 			})
 
 			request := httptest.NewRequest(http.MethodPost, tt.request, nil)
