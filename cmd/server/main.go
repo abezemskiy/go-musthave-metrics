@@ -11,7 +11,7 @@ import (
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/storage"
 )
 
-func MetricRouter(stor repositories.Repositories) chi.Router {
+func MetricRouter(stor repositories.ServerRepo) chi.Router {
 
 	r := chi.NewRouter()
 

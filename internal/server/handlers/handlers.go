@@ -34,7 +34,7 @@ func HandlerOther(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(http.StatusNotFound)
 }
 
-func GetGlobal(res http.ResponseWriter, req *http.Request, storage repositories.Repositories) {
+func GetGlobal(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
 	res.Header().Set("Content-Type", "text/html")
 	res.WriteHeader(http.StatusOK)
 
@@ -46,7 +46,7 @@ func GetGlobal(res http.ResponseWriter, req *http.Request, storage repositories.
 	}
 }
 
-func GetMetric(res http.ResponseWriter, req *http.Request, storage repositories.Repositories) {
+func GetMetric(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
 	res.Header().Set("Content-Type", "text/plan")
 	metricType := chi.URLParam(req, "metricType")
 	metricName := chi.URLParam(req, "metricName")
@@ -68,7 +68,7 @@ func GetMetric(res http.ResponseWriter, req *http.Request, storage repositories.
 }
 
 // Благодаря использованию роутера chi в этот хэндлер будут попадать только запросы POST
-func HandlerUpdate(res http.ResponseWriter, req *http.Request, storage repositories.Repositories) {
+func HandlerUpdate(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
 
 	// Проверка на nil для storage
 	if storage == nil {

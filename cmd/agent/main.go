@@ -10,8 +10,8 @@ import (
 func main() {
 	parseFlags()
 
-	var metrics storage.MetricsStats
-	go handlers.CollectMetricsTimer(&metrics)
+	metrics := storage.NewMetricsStats()
+	go handlers.CollectMetricsTimer(metrics)
 	time.Sleep(50 * time.Millisecond)
-	handlers.PushMetricsTimer("http://"+flagNetAddr, "update", &metrics)
+	handlers.PushMetricsTimer("http://"+flagNetAddr, "update", metrics)
 }

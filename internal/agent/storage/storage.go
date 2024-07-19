@@ -18,3 +18,7 @@ func (metrics *MetricsStats) CollectMetrics() {
 	metrics.PollCount++
 	runtime.ReadMemStats(&metrics.MemStats)
 }
+
+func NewMetricsStats() *MetricsStats {
+	return &MetricsStats{}
+}

@@ -1,8 +1,14 @@
 package repositories
 
-type Repositories interface {
-	AddGauge(string, float64)
-	AddCounter(string, int64)
-	GetMetric(string, string) (string, error)
-	GetAllMetrics() string
-}
+type (
+	Repositories interface {
+		GetMetric(string, string) (string, error)
+	}
+
+	ServerRepo interface {
+		Repositories
+		AddGauge(string, float64)
+		AddCounter(string, int64)
+		GetAllMetrics() string
+	}
+)
