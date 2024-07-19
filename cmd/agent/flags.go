@@ -30,7 +30,7 @@ func parseFlags() {
 	// для случаев, когда в переменной окружения ADDRESS присутствует непустое значение,
 	// переопределим адрес агента,
 	// даже если он был передан через аргумент командной строки
-	if envRunAddr := os.Getenv("AGENT_ADDRESS"); envRunAddr != "" {
+	if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
 		flagNetAddr = envRunAddr
 	}
 	if envReportInterval := os.Getenv("REPORT_INTERVAL"); envReportInterval != "" {
