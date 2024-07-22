@@ -48,6 +48,7 @@ func MetricRouter(stor repositories.ServerRepo) chi.Router {
 		})
 
 		r.Route("/value", func(r chi.Router) {
+			r.Get("/", logger.RequestLogger(handlers.GetMetricJSONHandler(stor)))
 			r.Get("/{metricType}/{metricName}", logger.RequestLogger(handlers.GetMetricHandler(stor)))
 		})
 	})

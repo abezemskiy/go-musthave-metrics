@@ -64,6 +64,187 @@ func TestOtherRequest(t *testing.T) {
 	}
 }
 
+func TestGetMetricJSON(t *testing.T) {
+	stor := storage.NewMemStorage(map[string]float64{"testgauge1": 3.134, "testgauge2": 10, "alloc": 233184}, map[string]int64{"testcount1": 4, "testcount2": 1})
+
+	delta := func(d int64) *int64 {
+		return &d
+	}
+	value := func(v float64) *float64 {
+		return &v
+	}
+	type want struct {
+		code        int
+		contentType string
+		metrics     repositories.Metrics
+	}
+	tests := []struct {
+		name    string
+		request string
+		body    repositories.Metrics
+		want    want
+	}{
+		{
+			name:    "Counter testcount#1",
+			request: "/value",
+			body: repositories.Metrics{
+				ID:    "testcount1",
+				MType: "counter",
+				//Delta: delta(3),
+				//Value: ,
+			},
+			want: want{
+				code:        200,
+				contentType: "application/json",
+				metrics: repositories.Metrics{
+					ID:    "testcount1",
+					MType: "counter",
+					Delta: delta(4),
+					//Value: ,
+				},
+			},
+		},
+		{
+			name:    "Counter error#1",
+			request: "/value",
+			body: repositories.Metrics{
+				ID:    "testcount3",
+				MType: "counter",
+				//Delta: delta(3),
+				//Value: ,
+			},
+			want: want{
+				code:        404,
+				contentType: "application/json",
+				metrics: repositories.Metrics{
+					ID:    "testcount3",
+					MType: "counter",
+					//Delta: delta(4),
+					//Value: ,
+				},
+			},
+		},
+		{
+			name:    "Counter error#1",
+			request: "/value",
+			body: repositories.Metrics{
+				ID:    "testcount2",
+				MType: "couunter",
+				//Delta: delta(3),
+				//Value: ,
+			},
+			want: want{
+				code:        404,
+				contentType: "application/json",
+				metrics: repositories.Metrics{
+					ID:    "testcount2",
+					MType: "couunter",
+					//Delta: delta(4),
+					//Value: ,
+				},
+			},
+		},
+		{
+			name:    "Gauge testgauge#1",
+			request: "/value",
+			body: repositories.Metrics{
+				ID:    "testgauge1",
+				MType: "gauge",
+				//Delta: delta(3),
+				//Value: ,
+			},
+			want: want{
+				code:        200,
+				contentType: "application/json",
+				metrics: repositories.Metrics{
+					ID:    "testgauge1",
+					MType: "gauge",
+					//Delta: delta(4),
+					Value: value(3.134),
+				},
+			},
+		},
+		{
+			name:    "Gauge error#1",
+			request: "/value",
+			body: repositories.Metrics{
+				ID:    "testgauge3",
+				MType: "gauge",
+				//Delta: delta(3),
+				//Value: ,
+			},
+			want: want{
+				code:        404,
+				contentType: "application/json",
+				metrics: repositories.Metrics{
+					ID:    "testgauge3",
+					MType: "gauge",
+					//Delta: delta(4),
+					//Value: value(3.134),
+				},
+			},
+		},
+		{
+			name:    "Gauge error#2",
+			request: "/value",
+			body: repositories.Metrics{
+				ID:    "testgauge2",
+				MType: "gauuge",
+				//Delta: delta(3),
+				//Value: ,
+			},
+			want: want{
+				code:        404,
+				contentType: "application/json",
+				metrics: repositories.Metrics{
+					ID:    "testgauge2",
+					MType: "gauuge",
+					//Delta: delta(4),
+					//Value: value(3.134),
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := chi.NewRouter()
+			r.Get("/value", func(res http.ResponseWriter, req *http.Request) {
+				GetMetricJSON(res, req, stor)
+			})
+
+			// сериализую струтктуру с метриками в json
+			body, err := json.Marshal(tt.body)
+			if err != nil {
+				t.Error(err, "Marshall message error")
+			}
+
+			request := httptest.NewRequest(http.MethodGet, tt.request, bytes.NewBuffer(body))
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, request)
+
+			res := w.Result()
+			defer res.Body.Close() // Закрываем тело ответа
+			// проверяем код ответа
+			assert.Equal(t, tt.want.code, res.StatusCode)
+
+			// сериализую желаемую струтктуру с метриками в json
+			bodyWant, err := json.Marshal(tt.want.metrics)
+			if err != nil {
+				t.Error(err, "Marshall message error")
+			}
+
+			// Проверяю тело ответа, если код ответа 200
+			if res.StatusCode == http.StatusOK {
+				resBody, err := io.ReadAll(res.Body)
+				if err != nil {
+					t.Error(err, "Get message error from responce body")
+				}
+				assert.Equal(t, bodyWant, resBody)
+			}
+		})
+	}
+}
+
 func TestUpdateMetrics(t *testing.T) {
 	stor := storage.NewMemStorage(nil, map[string]int64{"testcount1": 1})
 	type want struct {
