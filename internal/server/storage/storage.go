@@ -2,6 +2,8 @@ package storage
 
 import "fmt"
 
+// Хранилище метрик ------------------------------------------------------------------------------------
+
 type MemStorage struct {
 	gauges   map[string]float64
 	counters map[string]int64
@@ -67,3 +69,5 @@ func (storage *MemStorage) GetAllMetrics() string {
 	}
 	return result
 }
+
+// Хранилище метрик -----------------------------------------------------------------------------------------
