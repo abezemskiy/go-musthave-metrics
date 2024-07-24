@@ -86,12 +86,10 @@ func TestGetMetricJSON(t *testing.T) {
 	}{
 		{
 			name:    "Counter testcount#1",
-			request: "/value",
+			request: "/value/",
 			body: repositories.Metrics{
 				ID:    "testcount1",
 				MType: "counter",
-				//Delta: delta(3),
-				//Value: ,
 			},
 			want: want{
 				code:        200,
@@ -100,18 +98,15 @@ func TestGetMetricJSON(t *testing.T) {
 					ID:    "testcount1",
 					MType: "counter",
 					Delta: delta(4),
-					//Value: ,
 				},
 			},
 		},
 		{
 			name:    "Counter error#1",
-			request: "/value",
+			request: "/value/",
 			body: repositories.Metrics{
 				ID:    "testcount3",
 				MType: "counter",
-				//Delta: delta(3),
-				//Value: ,
 			},
 			want: want{
 				code:        404,
@@ -119,19 +114,15 @@ func TestGetMetricJSON(t *testing.T) {
 				metrics: repositories.Metrics{
 					ID:    "testcount3",
 					MType: "counter",
-					//Delta: delta(4),
-					//Value: ,
 				},
 			},
 		},
 		{
 			name:    "Counter error#1",
-			request: "/value",
+			request: "/value/",
 			body: repositories.Metrics{
 				ID:    "testcount2",
 				MType: "couunter",
-				//Delta: delta(3),
-				//Value: ,
 			},
 			want: want{
 				code:        404,
@@ -139,19 +130,15 @@ func TestGetMetricJSON(t *testing.T) {
 				metrics: repositories.Metrics{
 					ID:    "testcount2",
 					MType: "couunter",
-					//Delta: delta(4),
-					//Value: ,
 				},
 			},
 		},
 		{
 			name:    "Gauge testgauge#1",
-			request: "/value",
+			request: "/value/",
 			body: repositories.Metrics{
 				ID:    "testgauge1",
 				MType: "gauge",
-				//Delta: delta(3),
-				//Value: ,
 			},
 			want: want{
 				code:        200,
@@ -159,7 +146,6 @@ func TestGetMetricJSON(t *testing.T) {
 				metrics: repositories.Metrics{
 					ID:    "testgauge1",
 					MType: "gauge",
-					//Delta: delta(4),
 					Value: value(3.134),
 				},
 			},
@@ -170,8 +156,6 @@ func TestGetMetricJSON(t *testing.T) {
 			body: repositories.Metrics{
 				ID:    "testgauge3",
 				MType: "gauge",
-				//Delta: delta(3),
-				//Value: ,
 			},
 			want: want{
 				code:        404,
@@ -179,8 +163,6 @@ func TestGetMetricJSON(t *testing.T) {
 				metrics: repositories.Metrics{
 					ID:    "testgauge3",
 					MType: "gauge",
-					//Delta: delta(4),
-					//Value: value(3.134),
 				},
 			},
 		},
@@ -190,8 +172,6 @@ func TestGetMetricJSON(t *testing.T) {
 			body: repositories.Metrics{
 				ID:    "testgauge2",
 				MType: "gauuge",
-				//Delta: delta(3),
-				//Value: ,
 			},
 			want: want{
 				code:        404,
@@ -199,8 +179,6 @@ func TestGetMetricJSON(t *testing.T) {
 				metrics: repositories.Metrics{
 					ID:    "testgauge2",
 					MType: "gauuge",
-					//Delta: delta(4),
-					//Value: value(3.134),
 				},
 			},
 		},
@@ -208,7 +186,7 @@ func TestGetMetricJSON(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := chi.NewRouter()
-			r.Get("/value", func(res http.ResponseWriter, req *http.Request) {
+			r.Post("/value/", func(res http.ResponseWriter, req *http.Request) {
 				GetMetricJSON(res, req, stor)
 			})
 
@@ -218,7 +196,7 @@ func TestGetMetricJSON(t *testing.T) {
 				t.Error(err, "Marshall message error")
 			}
 
-			request := httptest.NewRequest(http.MethodGet, tt.request, bytes.NewBuffer(body))
+			request := httptest.NewRequest(http.MethodPost, tt.request, bytes.NewBuffer(body))
 			w := httptest.NewRecorder()
 			r.ServeHTTP(w, request)
 
@@ -409,7 +387,7 @@ func TestUpdateMetrics(t *testing.T) {
 	}
 }
 
-func TestUpdateMetricsJson(t *testing.T) {
+func TestUpdateMetricsJSON(t *testing.T) {
 	stor := storage.NewMemStorage(nil, map[string]int64{"testcount1": 1})
 	delta := func(d int64) *int64 {
 		return &d
@@ -437,7 +415,6 @@ func TestUpdateMetricsJson(t *testing.T) {
 				ID:    "testcount1",
 				MType: "counter",
 				Delta: delta(3),
-				//Value: ,
 			},
 			want: want{
 				code:        200,
@@ -453,7 +430,6 @@ func TestUpdateMetricsJson(t *testing.T) {
 				ID:    "testcount2",
 				MType: "counter",
 				Delta: delta(1),
-				//Value: ,
 			},
 			want: want{
 				code:        200,
@@ -468,7 +444,6 @@ func TestUpdateMetricsJson(t *testing.T) {
 			body: repositories.Metrics{
 				ID:    "testgauge1",
 				MType: "gauge",
-				//Delta: ,
 				Value: value(1),
 			},
 			want: want{
@@ -484,7 +459,6 @@ func TestUpdateMetricsJson(t *testing.T) {
 			body: repositories.Metrics{
 				ID:    "testgauge1",
 				MType: "gauge",
-				//Delta: ,
 				Value: value(3),
 			},
 			want: want{
@@ -500,7 +474,6 @@ func TestUpdateMetricsJson(t *testing.T) {
 			body: repositories.Metrics{
 				ID:    "testgauge2",
 				MType: "gauge",
-				//Delta: ,
 				Value: value(10),
 			},
 			want: want{
@@ -517,7 +490,6 @@ func TestUpdateMetricsJson(t *testing.T) {
 				ID:    "testcount1",
 				MType: "counteer",
 				Delta: delta(10),
-				//Value: value(10),
 			},
 			want: want{
 				code:        400,
@@ -532,7 +504,6 @@ func TestUpdateMetricsJson(t *testing.T) {
 			body: repositories.Metrics{
 				ID:    "testguage1",
 				MType: "gauuge",
-				//Delta: delta(10),
 				Value: value(10),
 			},
 			want: want{

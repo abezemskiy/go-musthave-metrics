@@ -42,13 +42,14 @@ func MetricRouter(stor repositories.ServerRepo) chi.Router {
 	r.Route("/", func(r chi.Router) {
 		r.Get("/", logger.RequestLogger(handlers.GetGlobalHandler(stor)))
 
-		r.Route("/update", func(r chi.Router){
+		r.Route("/update", func(r chi.Router) {
 			r.Post("/", logger.RequestLogger(handlers.UpdateMetricsJSONHandler(stor)))
 			r.Post("/{metricType}/{metricName}/{metricValue}", logger.RequestLogger(handlers.UpdateMetricsHandler(stor)))
 		})
 
 		r.Route("/value", func(r chi.Router) {
-			r.Get("/", logger.RequestLogger(handlers.GetMetricJSONHandler(stor)))
+			//r.Get("/", logger.RequestLogger(handlers.GetMetricJSONHandler(stor)))
+			r.Post("/", logger.RequestLogger(handlers.GetMetricJSONHandler(stor)))
 			r.Get("/{metricType}/{metricName}", logger.RequestLogger(handlers.GetMetricHandler(stor)))
 		})
 	})

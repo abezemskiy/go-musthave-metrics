@@ -61,11 +61,11 @@ func (storage *MemStorage) GetAllMetrics() string {
 	var result string
 
 	for name, val := range storage.gauges {
-		result += name + " " + fmt.Sprint(val) + "\n"
+		result += fmt.Sprintf("%s: %g\n", name, val)
 	}
 
 	for name, val := range storage.counters {
-		result += name + " " + fmt.Sprint(val) + "\n"
+		result += fmt.Sprintf("%s: %d\n", name, val)
 	}
 	return result
 }

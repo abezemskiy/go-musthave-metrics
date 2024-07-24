@@ -283,7 +283,7 @@ func TestMemStorageGetAllMetrics(t *testing.T) {
 				gauges:   map[string]float64{"gauge1": 17.77},
 				counters: map[string]int64{},
 			},
-			want: "gauge1 17.77\n",
+			want: "gauge1: 17.77\n",
 		},
 	}
 	for _, tt := range tests {

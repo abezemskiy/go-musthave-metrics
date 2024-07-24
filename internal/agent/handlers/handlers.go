@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -8,6 +10,7 @@ import (
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/logger"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/storage"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
 )
@@ -40,6 +43,65 @@ func CollectMetricsTimer(metrics *storage.MetricsStats) {
 	}
 }
 
+// Push отправляет метрику на сервер в JSON формате и возвращает ошибку при неудаче
+func PushJSON(address, action, typeMetric, nameMetric, valueMetric string, client *resty.Client) error {
+	// Строю структуру метрики для сериализации из принятых параметров
+	var metrics repositories.Metrics = repositories.Metrics{}
+	metrics.ID = nameMetric
+	metrics.MType = typeMetric
+
+	switch typeMetric {
+	case "counter":
+		val, err := strconv.ParseInt(valueMetric, 10, 64)
+		if err != nil {
+			logger.AgentLog.Error("Convert string to int64 error: ", zap.String("error: ", error.Error(err)))
+			return err
+		}
+		metrics.Delta = &val
+	case "gauge":
+		val, err := strconv.ParseFloat(valueMetric, 64)
+		if err != nil {
+			logger.AgentLog.Error("Convert string to float64 error: ", zap.String("error: ", error.Error(err)))
+			return err
+		}
+		metrics.Value = &val
+	default:
+		logger.AgentLog.Error("Invalid type of metric", zap.String("type: ", metrics.MType)) //---------------------------------------------
+		return fmt.Errorf("get invalid type of metric: %s", typeMetric)
+	}
+	logger.AgentLog.Debug(fmt.Sprintf("Success build metric structure for JSON: name: %s, type: %s, delta: %d, value: %d", metrics.ID, metrics.MType, metrics.Delta, metrics.Value))
+
+	// сериализую полученную струтктуру с метриками в json-представление  в виде слайса байт
+	body, err := json.Marshal(metrics)
+	if err != nil {
+		logger.AgentLog.Error("Encode message error", zap.String("error: ", error.Error(err)))
+		return err
+	}
+
+	url := fmt.Sprintf("%s/%s", address, action)
+	resp, err := client.R().
+		SetHeader("Content-Type", "application/json").
+		SetBody(body).
+		Post(url)
+
+	if err != nil {
+		logger.AgentLog.Error("Push json metric to server error ", zap.String("error: ", error.Error(err)))
+		return err
+	}
+
+	if resp.StatusCode() != http.StatusOK {
+		logger.AgentLog.Error("Geting status is not 200 ", zap.String("error: ", error.Error(err)))
+		return err
+	}
+
+	respBody := resp.Body()
+	if !bytes.Equal(body, respBody) {
+		return fmt.Errorf("answer metric from server not equal pushing metric: get %d, want %d", body, respBody)
+	}
+	logger.AgentLog.Debug(fmt.Sprintf("Success push metric in JSON format: typeMetric - %s, nameMetric - %s, valueMetric - %s", typeMetric, nameMetric, valueMetric))
+	return nil
+}
+
 // Push отправляет метрику на сервер и возвращает ошибку при неудаче
 func Push(address, action, typemetric, namemetric, valuemetric string, client *resty.Client) error {
 	url := fmt.Sprintf("%s/%s/%s/%s/%s", address, action, typemetric, namemetric, valuemetric)
@@ -62,47 +124,14 @@ func PushMetrics(address, action string, metrics *storage.MetricsStats, client *
 	metrics.Lock()
 	defer metrics.Unlock()
 
-	metricsToSend := []struct {
-		typemetricgauge string
-		name            string
-		value           string
-	}{
-		{"gauge", "alloc", strconv.FormatUint(metrics.Alloc, 10)},
-		{"gauge", "buckhashsys", strconv.FormatUint(metrics.BuckHashSys, 10)},
-		{"gauge", "formatunit", strconv.FormatUint(metrics.Frees, 10)},
-		{"gauge", "gccpufraction", strconv.FormatFloat(metrics.GCCPUFraction, 'f', 6, 64)},
-		{"gauge", "gcsys", strconv.FormatUint(metrics.GCSys, 10)},
-		{"gauge", "heapalloc", strconv.FormatUint(metrics.HeapAlloc, 10)},
-		{"gauge", "heapidle", strconv.FormatUint(metrics.HeapIdle, 10)},
-		{"gauge", "heapinuse", strconv.FormatUint(metrics.HeapInuse, 10)},
-		{"gauge", "heapobjects", strconv.FormatUint(metrics.HeapObjects, 10)},
-		{"gauge", "heapreleased", strconv.FormatUint(metrics.HeapReleased, 10)},
-		{"gauge", "heapsys", strconv.FormatUint(metrics.HeapSys, 10)},
-		{"gauge", "lastgc", strconv.FormatUint(metrics.LastGC, 10)},
-		{"gauge", "lookups", strconv.FormatUint(metrics.Lookups, 10)},
-		{"gauge", "mcacheinuse", strconv.FormatUint(metrics.MCacheInuse, 10)},
-		{"gauge", "mcachesys", strconv.FormatUint(metrics.MCacheSys, 10)},
-		{"gauge", "mspaninuse", strconv.FormatUint(metrics.MSpanInuse, 10)},
-		{"gauge", "mspansys", strconv.FormatUint(metrics.MSpanSys, 10)},
-		{"gauge", "mallocs", strconv.FormatUint(metrics.Mallocs, 10)},
-		{"gauge", "nextgc", strconv.FormatUint(metrics.NextGC, 10)},
-		{"gauge", "numforcedgc", strconv.FormatUint(uint64(metrics.NumForcedGC), 10)},
-		{"gauge", "numgc", strconv.FormatUint(uint64(metrics.NumGC), 10)},
-		{"gauge", "othersys", strconv.FormatUint(metrics.OtherSys, 10)},
-		{"gauge", "pausetotalns", strconv.FormatUint(metrics.PauseTotalNs, 10)},
-		{"gauge", "stackinuse", strconv.FormatUint(metrics.StackInuse, 10)},
-		{"gauge", "stacksys", strconv.FormatUint(metrics.StackSys, 10)},
-		{"gauge", "sys", strconv.FormatUint(metrics.Sys, 10)},
-		{"gauge", "totalalloc", strconv.FormatUint(metrics.TotalAlloc, 10)},
-
-		{"counter", "pollcount", strconv.FormatUint(uint64(metrics.PollCount), 10)},
-		{"gauge", "randomvalue", strconv.FormatFloat(metrics.RandomValue, 'f', 6, 64)},
-	}
-
-	for _, metric := range metricsToSend {
-		err := Push(address, action, metric.typemetricgauge, metric.name, metric.value, client)
+	for _, metricName := range storage.AllMetrics {
+		typeMetric, value, err := metrics.GetMetricString(metricName)
 		if err != nil {
-			fmt.Printf("Failed to push metric %s: %v\n", metric.name, err)
+			logger.AgentLog.Error(fmt.Sprintf("Failed to push metric %s: %v\n", typeMetric, err), zap.String("action", "push metrics"))
+		}
+		er := Push(address, action, typeMetric, metricName, value, client)
+		if er != nil {
+			logger.AgentLog.Error(fmt.Sprintf("Failed to push metric %s: %v\n", typeMetric, err), zap.String("action", "push metrics"))
 		}
 	}
 }

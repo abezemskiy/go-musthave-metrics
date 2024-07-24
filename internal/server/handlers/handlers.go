@@ -27,7 +27,7 @@ func init() {
             <title>HTML Response</title>
         </head>
         <body>
-            <h1>{{.}}</h1>
+            <pre>{{.}}</pre>
         </body>
         </html>
     `))
@@ -50,6 +50,7 @@ func GetGlobal(res http.ResponseWriter, req *http.Request, storage repositories.
 	}
 }
 
+// Нужна для сериализации json метрики и записи в тело ответа
 func WriteAnswer(res http.ResponseWriter, req *http.Request, metrics *repositories.Metrics) {
 	// сериализую полученную струтктуру с метриками в json-представление  в виде слайса байт
 	body, err := json.Marshal(metrics)
@@ -76,12 +77,14 @@ func WriteAnswer(res http.ResponseWriter, req *http.Request, metrics *repositori
 }
 
 func GetMetricJSON(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
-	res.Header().Set("Content-Type", "application/json")
+	logger.ServerLog.Debug("In GetMetricJSON", zap.String("address", req.URL.String()))
 
+	res.Header().Set("Content-Type", "application/json")
 	defer req.Body.Close()
 
-	var metrics repositories.Metrics
+	var metrics repositories.Metrics = repositories.Metrics{}
 	if err := json.NewDecoder(req.Body).Decode(&metrics); err != nil {
+		logger.ServerLog.Error("In GetMetricJSON decode body error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -112,6 +115,10 @@ func GetMetricJSON(res http.ResponseWriter, req *http.Request, storage repositor
 			return
 		}
 		metrics.Value = &val
+	default:
+		logger.ServerLog.Debug("In GetMetricJSON invalid type of metric", zap.String("address", req.URL.String()))
+		res.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
 	WriteAnswer(res, req, &metrics)
@@ -146,6 +153,7 @@ func UpdateMetricsJSON(res http.ResponseWriter, req *http.Request, storage repos
 		http.Error(res, "Storage not initialized", http.StatusInternalServerError)
 		return
 	}
+	logger.ServerLog.Debug("Storage is not nil") //---------------------------------------------
 	res.Header().Set("Content-Type", "application/json")
 
 	var metrics = repositories.Metrics{}
@@ -158,14 +166,25 @@ func UpdateMetricsJSON(res http.ResponseWriter, req *http.Request, storage repos
 
 	switch metrics.MType {
 	case "gauge":
+		if metrics.Value == nil {
+			logger.ServerLog.Error("Decode message error, value in gauge metric is nil", zap.String("address: ", req.URL.String()))
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
 		storage.AddGauge(metrics.ID, *metrics.Value)
 	case "counter":
+		if metrics.Delta == nil {
+			logger.ServerLog.Error("Decode message error, delta in counter metric is nil", zap.String("address: ", req.URL.String()))
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
 		storage.AddCounter(metrics.ID, *metrics.Delta)
 	default:
+		logger.ServerLog.Error("Invalid type of metric", zap.String("type: ", metrics.MType)) //---------------------------------------------
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
+	logger.ServerLog.Debug("Successful decode metrcic from json", zap.String("address: ", req.URL.String()))
 	WriteAnswer(res, req, &metrics)
 }
 
