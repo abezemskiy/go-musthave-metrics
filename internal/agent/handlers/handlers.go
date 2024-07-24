@@ -46,7 +46,7 @@ func CollectMetricsTimer(metrics *storage.MetricsStats) {
 // Push отправляет метрику на сервер в JSON формате и возвращает ошибку при неудаче
 func PushJSON(address, action, typeMetric, nameMetric, valueMetric string, client *resty.Client) error {
 	// Строю структуру метрики для сериализации из принятых параметров
-	var metrics repositories.Metrics = repositories.Metrics{}
+	var metrics repositories.Metrics
 	metrics.ID = nameMetric
 	metrics.MType = typeMetric
 

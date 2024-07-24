@@ -82,7 +82,7 @@ func GetMetricJSON(res http.ResponseWriter, req *http.Request, storage repositor
 	res.Header().Set("Content-Type", "application/json")
 	defer req.Body.Close()
 
-	var metrics repositories.Metrics = repositories.Metrics{}
+	var metrics repositories.Metrics
 	if err := json.NewDecoder(req.Body).Decode(&metrics); err != nil {
 		logger.ServerLog.Error("In GetMetricJSON decode body error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
 		http.Error(res, err.Error(), http.StatusBadRequest)
