@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/compress"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/handlers"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/storage"
 	"github.com/go-chi/chi/v5"
@@ -164,9 +165,7 @@ func TestPushJSON(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := chi.NewRouter()
-			r.Post("/update", func(res http.ResponseWriter, req *http.Request) {
-				handlers.UpdateMetricsJSON(res, req, stor)
-			})
+			r.Post("/update", compress.GzipMiddleware(handlers.UpdateMetricsJSONHandler(stor)))
 
 			// Создаём тестовый сервер
 			ts := httptest.NewServer(r)

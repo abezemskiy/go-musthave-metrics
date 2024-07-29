@@ -1,5 +1,7 @@
 package repositories
 
+import "fmt"
+
 type (
 	Repositories interface {
 		GetMetric(string, string) (string, error)
@@ -21,3 +23,15 @@ type (
 		Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
 	}
 )
+
+func (metrcic Metrics) String() string {
+	var delta = "nil"
+	if metrcic.Delta != nil {
+		delta = fmt.Sprintf("%d", *metrcic.Delta)
+	}
+	var value = "nil"
+	if metrcic.Value != nil {
+		value = fmt.Sprintf("%g", *metrcic.Value)
+	}
+	return fmt.Sprintf("ID: %s, MType: %s, Delta: %s, Value: %s", metrcic.ID, metrcic.MType, delta, value)
+}

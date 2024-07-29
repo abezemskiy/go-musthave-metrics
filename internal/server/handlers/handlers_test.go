@@ -3,7 +3,6 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,6 +11,7 @@ import (
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestOtherRequest(t *testing.T) {
@@ -205,19 +205,15 @@ func TestGetMetricJSON(t *testing.T) {
 			// проверяем код ответа
 			assert.Equal(t, tt.want.code, res.StatusCode)
 
-			// сериализую желаемую струтктуру с метриками в json
-			bodyWant, err := json.Marshal(tt.want.metrics)
-			if err != nil {
-				t.Error(err, "Marshall message error")
-			}
-
 			// Проверяю тело ответа, если код ответа 200
 			if res.StatusCode == http.StatusOK {
-				resBody, err := io.ReadAll(res.Body)
-				if err != nil {
-					t.Error(err, "Get message error from responce body")
-				}
-				assert.Equal(t, bodyWant, resBody)
+				// Десериализую структуру с метриками
+				var resMetric repositories.Metrics
+				dec := json.NewDecoder(res.Body)
+				er := dec.Decode(&resMetric)
+				require.NoError(t, er)
+
+				assert.Equal(t, tt.want.metrics, resMetric)
 			}
 		})
 	}
@@ -538,11 +534,13 @@ func TestUpdateMetricsJSON(t *testing.T) {
 
 			// Проверяю тело ответа, если код ответа 200
 			if res.StatusCode == http.StatusOK {
-				resBody, err := io.ReadAll(res.Body)
-				if err != nil {
-					t.Error(err, "Get message error from responce body")
-				}
-				assert.Equal(t, body, resBody)
+				// Десериализую структуру с метриками
+				var resMetric repositories.Metrics
+				dec := json.NewDecoder(res.Body)
+				er := dec.Decode(&resMetric)
+				require.NoError(t, er)
+
+				assert.Equal(t, tt.body, resMetric)
 			}
 		})
 	}

@@ -2,8 +2,8 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -41,45 +41,20 @@ func OtherRequest(res http.ResponseWriter, req *http.Request) {
 func GetGlobal(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
 	res.Header().Set("Content-Type", "text/html")
 	res.WriteHeader(http.StatusOK)
-
 	metrics := storage.GetAllMetrics()
 
-	err := tmpl.Execute(res, metrics)
-	if err != nil {
-		log.Printf("Template execute error in GetGlobal handler: %v\n", err)
-	}
-}
-
-// Нужна для сериализации json метрики и записи в тело ответа
-func WriteAnswer(res http.ResponseWriter, req *http.Request, metrics *repositories.Metrics) {
-	// сериализую полученную струтктуру с метриками в json-представление  в виде слайса байт
-	body, err := json.Marshal(metrics)
-	if err != nil {
-		logger.ServerLog.Error("Encode message error", zap.String("address: ", req.URL.String()))
-		http.Error(res, "Encode message error", http.StatusInternalServerError)
+	if err := tmpl.Execute(res, metrics); err != nil {
+		logger.ServerLog.Error("template execute error in GetGlobal handler", zap.String("error", error.Error(err)))
+		res.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
-	n, err := res.Write(body)
-	if err != nil {
-		logger.ServerLog.Error("Write message error", zap.String("address: ", req.URL.String()), zap.String("error: ", error.Error(err)))
-		http.Error(res, "Write message error", http.StatusInternalServerError)
-		return
-	}
-	if n < len(body) {
-		logger.ServerLog.Error("Write message error", zap.String("address: ", req.URL.String()),
-			zap.String("error: ", fmt.Sprintf("expected %d, get %d bytes", len(body), n)))
-
-		http.Error(res, "Write message error", http.StatusInternalServerError)
-		return
-	}
-	res.WriteHeader(http.StatusOK)
 }
 
 func GetMetricJSON(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
 	logger.ServerLog.Debug("In GetMetricJSON", zap.String("address", req.URL.String()))
 
 	res.Header().Set("Content-Type", "application/json")
+
 	defer req.Body.Close()
 
 	var metrics repositories.Metrics
@@ -102,7 +77,7 @@ func GetMetricJSON(res http.ResponseWriter, req *http.Request, storage repositor
 	case "counter":
 		val, err := strconv.ParseInt(value, 10, 64)
 		if err != nil {
-			logger.ServerLog.Error("Convert string to int64 error: ", zap.String("address: ", req.URL.String()), zap.String("error: ", error.Error(err)))
+			logger.ServerLog.Error("Convert string to int64 error: ", zap.String("address", req.URL.String()), zap.String("error: ", error.Error(err)))
 			http.Error(res, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -110,7 +85,7 @@ func GetMetricJSON(res http.ResponseWriter, req *http.Request, storage repositor
 	case "gauge":
 		val, err := strconv.ParseFloat(value, 64)
 		if err != nil {
-			logger.ServerLog.Error("Convert string to float64 error: ", zap.String("address: ", req.URL.String()), zap.String("error: ", error.Error(err)))
+			logger.ServerLog.Error("Convert string to float64 error: ", zap.String("address", req.URL.String()), zap.String("error: ", error.Error(err)))
 			http.Error(res, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -121,7 +96,12 @@ func GetMetricJSON(res http.ResponseWriter, req *http.Request, storage repositor
 		return
 	}
 
-	WriteAnswer(res, req, &metrics)
+	res.WriteHeader(http.StatusOK)
+	enc := json.NewEncoder(res)
+	if err := enc.Encode(metrics); err != nil {
+		logger.ServerLog.Error("error encoding response", zap.String("error", error.Error(err)))
+		return
+	}
 }
 
 func GetMetric(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
@@ -134,6 +114,7 @@ func GetMetric(res http.ResponseWriter, req *http.Request, storage repositories.
 		res.WriteHeader(http.StatusNotFound)
 		return
 	}
+	res.WriteHeader(http.StatusOK)
 
 	n, err := res.Write([]byte(value))
 	if err != nil {
@@ -154,12 +135,13 @@ func UpdateMetricsJSON(res http.ResponseWriter, req *http.Request, storage repos
 		return
 	}
 	logger.ServerLog.Debug("Storage is not nil") //---------------------------------------------
+
 	res.Header().Set("Content-Type", "application/json")
 
 	var metrics = repositories.Metrics{}
-	err := json.NewDecoder(req.Body).Decode(&metrics)
-	if err != nil {
-		logger.ServerLog.Error("Decode message error", zap.String("address: ", req.URL.String()))
+
+	if err := json.NewDecoder(req.Body).Decode(&metrics); err != nil {
+		logger.ServerLog.Error("Decode message error", zap.String("address", req.URL.String()))
 		http.Error(res, "Decode message error", http.StatusInternalServerError)
 		return
 	}
@@ -167,25 +149,41 @@ func UpdateMetricsJSON(res http.ResponseWriter, req *http.Request, storage repos
 	switch metrics.MType {
 	case "gauge":
 		if metrics.Value == nil {
-			logger.ServerLog.Error("Decode message error, value in gauge metric is nil", zap.String("address: ", req.URL.String()))
+			logger.ServerLog.Error("Decode message error, value in gauge metric is nil", zap.String("address", req.URL.String()))
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		storage.AddGauge(metrics.ID, *metrics.Value)
 	case "counter":
 		if metrics.Delta == nil {
-			logger.ServerLog.Error("Decode message error, delta in counter metric is nil", zap.String("address: ", req.URL.String()))
+			logger.ServerLog.Error("Decode message error, delta in counter metric is nil", zap.String("address", req.URL.String()))
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		storage.AddCounter(metrics.ID, *metrics.Delta)
 	default:
-		logger.ServerLog.Error("Invalid type of metric", zap.String("type: ", metrics.MType)) //---------------------------------------------
+		logger.ServerLog.Error("Invalid type of metric", zap.String("type", metrics.MType)) //---------------------------------------------
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	logger.ServerLog.Debug("Successful decode metrcic from json", zap.String("address: ", req.URL.String()))
-	WriteAnswer(res, req, &metrics)
+
+	bodyDebug, _ := io.ReadAll(req.Body)
+	logger.ServerLog.Debug("message before compress", zap.String("bytes: ", string(bodyDebug)))
+
+	res.WriteHeader(http.StatusOK)
+
+	enc := json.NewEncoder(res)
+	if err := enc.Encode(metrics); err != nil {
+		logger.ServerLog.Error("error encoding response", zap.String("error", error.Error(err)))
+		return
+	}
+
+	logger.ServerLog.Debug("successful write encode data to answer message")
+
+	logger.ServerLog.Debug("server answer is", zap.String("Content-Encoding", res.Header().Get("Content-Encoding")),
+		zap.String("Status-Code", res.Header().Get("Status-Code")),
+		zap.String("Content-Type", res.Header().Get("Content-Type")))
 }
 
 // Благодаря использованию роутера chi в этот хэндлер будут попадать только запросы POST
@@ -230,44 +228,44 @@ func UpdateMetrics(res http.ResponseWriter, req *http.Request, storage repositor
 	res.WriteHeader(http.StatusOK)
 }
 
-func GetGlobalHandler(stor repositories.ServerRepo) http.Handler {
+func GetGlobalHandler(stor repositories.ServerRepo) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		GetGlobal(res, req, stor)
 	}
-	return http.HandlerFunc(fn)
+	return fn
 }
 
-func UpdateMetricsJSONHandler(stor repositories.ServerRepo) http.Handler {
+func UpdateMetricsJSONHandler(stor repositories.ServerRepo) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		UpdateMetricsJSON(res, req, stor)
 	}
-	return http.HandlerFunc(fn)
+	return fn
 }
 
-func UpdateMetricsHandler(stor repositories.ServerRepo) http.Handler {
+func UpdateMetricsHandler(stor repositories.ServerRepo) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		UpdateMetrics(res, req, stor)
 	}
-	return http.HandlerFunc(fn)
+	return fn
 }
 
-func GetMetricJSONHandler(stor repositories.ServerRepo) http.Handler {
+func GetMetricJSONHandler(stor repositories.ServerRepo) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		GetMetricJSON(res, req, stor)
 	}
-	return http.HandlerFunc(fn)
+	return fn
 }
 
-func GetMetricHandler(stor repositories.ServerRepo) http.Handler {
+func GetMetricHandler(stor repositories.ServerRepo) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		GetMetric(res, req, stor)
 	}
-	return http.HandlerFunc(fn)
+	return fn
 }
 
-func OtherRequestHandler() http.Handler {
+func OtherRequestHandler() http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		OtherRequest(res, req)
 	}
-	return http.HandlerFunc(fn)
+	return fn
 }

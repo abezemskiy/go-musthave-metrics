@@ -83,7 +83,7 @@ func RequestLogger(h http.Handler) http.HandlerFunc {
 			"method", r.Method,
 			"status", responseData.status, // получаем перехваченный код статуса ответа
 			"duration", duration,
-			"size", responseData.size, // получаем перехваченный размер ответа
+			"size", responseData.size, // получаем перехваченный размер ответа,
 		)
 	}
 	return logFn

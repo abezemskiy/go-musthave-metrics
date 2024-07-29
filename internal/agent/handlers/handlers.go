@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/compress"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/logger"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/storage"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
@@ -72,32 +74,64 @@ func PushJSON(address, action, typeMetric, nameMetric, valueMetric string, clien
 	logger.AgentLog.Debug(fmt.Sprintf("Success build metric structure for JSON: name: %s, type: %s, delta: %d, value: %d", metrics.ID, metrics.MType, metrics.Delta, metrics.Value))
 
 	// сериализую полученную струтктуру с метриками в json-представление  в виде слайса байт
-	body, err := json.Marshal(metrics)
+	var bufEncode bytes.Buffer
+	enc := json.NewEncoder(&bufEncode)
+	if err := enc.Encode(metrics); err != nil {
+		logger.AgentLog.Error("Encode message error", zap.String("error", error.Error(err)))
+	}
+
+	// Сжатие данных для передачи
+	compressBody, err := compress.Compress(bufEncode.Bytes())
 	if err != nil {
-		logger.AgentLog.Error("Encode message error", zap.String("error: ", error.Error(err)))
+		logger.AgentLog.Error("Fail to comperess push data ", zap.String("error", error.Error(err)))
 		return err
 	}
 
 	url := fmt.Sprintf("%s/%s", address, action)
 	resp, err := client.R().
 		SetHeader("Content-Type", "application/json").
-		SetBody(body).
+		SetHeader("Content-Encoding", "gzip").
+		SetHeader("Accept-Encoding", "gzip").
+		SetBody(compressBody).
 		Post(url)
 
 	if err != nil {
-		logger.AgentLog.Error("Push json metric to server error ", zap.String("error: ", error.Error(err)))
+		logger.AgentLog.Error("Push json metric to server error ", zap.String("error", error.Error(err)))
 		return err
 	}
+
+	logger.AgentLog.Debug("Get answer from server", zap.String("Content-Encoding", resp.Header().Get("Content-Encoding")),
+		zap.String("statusCode", fmt.Sprintf("%d", resp.StatusCode())),
+		zap.String("Content-Type", resp.Header().Get("Content-Type")),
+		zap.String("Content-Encoding", fmt.Sprint(resp.Header().Values("Content-Encoding"))))
 
 	if resp.StatusCode() != http.StatusOK {
-		logger.AgentLog.Error("Geting status is not 200 ", zap.String("error: ", error.Error(err)))
-		return err
+		logger.AgentLog.Error("Geting status is not 200 ", zap.String("statusCode", fmt.Sprintf("%d", resp.StatusCode())))
+		return fmt.Errorf("status code is: %d", resp.StatusCode())
 	}
 
-	respBody := resp.Body()
-	if !bytes.Equal(body, respBody) {
-		return fmt.Errorf("answer metric from server not equal pushing metric: get %d, want %d", body, respBody)
+	contentEncoding := resp.Header().Get("Content-Encoding")
+	if strings.Contains(contentEncoding, "gzip") {
+		logger.AgentLog.Debug("Get compress answer data in PushJSON function", zap.String("Content-Encoding", contentEncoding))
+	} else {
+		logger.AgentLog.Debug("Get uncompress answer data in PushJSON function", zap.String("Content-Encoding", contentEncoding))
 	}
+
+	responceMetric := resp.Body()
+	if !bytes.Equal(bufEncode.Bytes(), responceMetric) {
+		return fmt.Errorf("answer metric from server not equal pushing metric: get %d, want %d", responceMetric, bufEncode.Bytes())
+	}
+
+	// Десериализую данные полученные от сервера, в основном для дебага
+	var resJSON repositories.Metrics
+	buRes := bytes.NewBuffer(responceMetric)
+	dec := json.NewDecoder(buRes)
+	if err := dec.Decode(&resJSON); err != nil {
+		logger.AgentLog.Error("decode decompress data from server error ", zap.String("error", error.Error(err)))
+		return err
+	}
+	logger.AgentLog.Debug(fmt.Sprintf("decode metric from server %s", resJSON.String()))
+
 	logger.AgentLog.Debug(fmt.Sprintf("Success push metric in JSON format: typeMetric - %s, nameMetric - %s, valueMetric - %s", typeMetric, nameMetric, valueMetric))
 	return nil
 }
@@ -127,11 +161,11 @@ func PushMetrics(address, action string, metrics *storage.MetricsStats, client *
 	for _, metricName := range storage.AllMetrics {
 		typeMetric, value, err := metrics.GetMetricString(metricName)
 		if err != nil {
-			logger.AgentLog.Error(fmt.Sprintf("Failed to push metric %s: %v\n", typeMetric, err), zap.String("action", "push metrics"))
+			logger.AgentLog.Error(fmt.Sprintf("Failed to get metric %s: %v\n", typeMetric, err), zap.String("action", "push metrics"))
 		}
-		er := Push(address, action, typeMetric, metricName, value, client)
+		er := PushJSON(address, action, typeMetric, metricName, value, client)
 		if er != nil {
-			logger.AgentLog.Error(fmt.Sprintf("Failed to push metric %s: %v\n", typeMetric, err), zap.String("action", "push metrics"))
+			logger.AgentLog.Error(fmt.Sprintf("Failed to push metric %s: %v\n", typeMetric, er), zap.String("action", "push metrics"))
 		}
 	}
 }

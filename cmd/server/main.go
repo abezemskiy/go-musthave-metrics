@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/compress"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/handlers"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/logger"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/storage"
@@ -40,22 +41,21 @@ func MetricRouter(stor repositories.ServerRepo) chi.Router {
 	r := chi.NewRouter()
 
 	r.Route("/", func(r chi.Router) {
-		r.Get("/", logger.RequestLogger(handlers.GetGlobalHandler(stor)))
+		r.Get("/", logger.RequestLogger(compress.GzipMiddleware(handlers.GetGlobalHandler(stor))))
 
 		r.Route("/update", func(r chi.Router) {
-			r.Post("/", logger.RequestLogger(handlers.UpdateMetricsJSONHandler(stor)))
-			r.Post("/{metricType}/{metricName}/{metricValue}", logger.RequestLogger(handlers.UpdateMetricsHandler(stor)))
+			r.Post("/", logger.RequestLogger(compress.GzipMiddleware(handlers.UpdateMetricsJSONHandler(stor))))
+			r.Post("/{metricType}/{metricName}/{metricValue}", logger.RequestLogger(compress.GzipMiddleware(handlers.UpdateMetricsHandler(stor))))
 		})
 
 		r.Route("/value", func(r chi.Router) {
-			//r.Get("/", logger.RequestLogger(handlers.GetMetricJSONHandler(stor)))
-			r.Post("/", logger.RequestLogger(handlers.GetMetricJSONHandler(stor)))
-			r.Get("/{metricType}/{metricName}", logger.RequestLogger(handlers.GetMetricHandler(stor)))
+			r.Post("/", logger.RequestLogger(compress.GzipMiddleware(handlers.GetMetricJSONHandler(stor))))
+			r.Get("/{metricType}/{metricName}", logger.RequestLogger(compress.GzipMiddleware(handlers.GetMetricHandler(stor))))
 		})
 	})
 
 	// Определяем маршрут по умолчанию для некорректных запросов
-	r.NotFound(logger.RequestLogger(handlers.OtherRequestHandler()))
+	r.NotFound(logger.RequestLogger(compress.GzipMiddleware(handlers.OtherRequestHandler())))
 
 	return r
 }
