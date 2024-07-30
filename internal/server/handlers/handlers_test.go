@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/saver"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
@@ -221,6 +223,9 @@ func TestGetMetricJSON(t *testing.T) {
 
 func TestUpdateMetrics(t *testing.T) {
 	stor := storage.NewMemStorage(nil, map[string]int64{"testcount1": 1})
+	saver, err := saver.NewSaverWriter("./TestUpdateMetrics.json")
+
+	require.NoError(t, err)
 	type want struct {
 		code        int
 		contentType string
@@ -367,7 +372,7 @@ func TestUpdateMetrics(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := chi.NewRouter()
 			r.Post("/update/{metricType}/{metricName}/{metricValue}", func(res http.ResponseWriter, req *http.Request) {
-				UpdateMetrics(res, req, &tt.arg)
+				UpdateMetrics(res, req, &tt.arg, saver)
 			})
 
 			request := httptest.NewRequest(http.MethodPost, tt.request, nil)
@@ -381,10 +386,16 @@ func TestUpdateMetrics(t *testing.T) {
 			assert.Equal(t, tt.want.storage, tt.arg)
 		})
 	}
+	// Удаляю тестовый файл
+	er := os.Remove("./TestUpdateMetrics.json")
+	require.NoError(t, er)
 }
 
 func TestUpdateMetricsJSON(t *testing.T) {
 	stor := storage.NewMemStorage(nil, map[string]int64{"testcount1": 1})
+	saver, err := saver.NewSaverWriter("./TestUpdateMetricsJSON.json")
+	require.NoError(t, err)
+
 	delta := func(d int64) *int64 {
 		return &d
 	}
@@ -513,7 +524,7 @@ func TestUpdateMetricsJSON(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := chi.NewRouter()
 			r.Post("/update", func(res http.ResponseWriter, req *http.Request) {
-				UpdateMetricsJSON(res, req, &tt.arg)
+				UpdateMetricsJSON(res, req, &tt.arg, saver)
 			})
 
 			// сериализую струтктуру с метриками в json
@@ -544,4 +555,7 @@ func TestUpdateMetricsJSON(t *testing.T) {
 			}
 		})
 	}
+	// Удаляю тестовый файл
+	er := os.Remove("./TestUpdateMetricsJSON.json")
+	require.NoError(t, er)
 }

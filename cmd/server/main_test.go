@@ -3,8 +3,10 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/saver"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,8 +24,11 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string) *http.R
 
 func TestHandlerUpdate(t *testing.T) {
 	stor := storage.NewMemStorage(nil, map[string]int64{"testcount1": 1})
+	saver, err := saver.NewSaverWriter("./TestHandlerUpdate.json")
+	require.NoError(t, err)
 
-	ts := httptest.NewServer(MetricRouter(stor))
+	ts := httptest.NewServer(MetricRouter(stor, saver))
+
 	defer ts.Close()
 
 	type want struct {
@@ -174,4 +179,7 @@ func TestHandlerUpdate(t *testing.T) {
 		assert.Equal(t, tt.want.storage, tt.arg)
 		resp.Body.Close()
 	}
+	// Удаляю тестовый файл
+	er := os.Remove("./TestHandlerUpdate.json")
+	require.NoError(t, er)
 }

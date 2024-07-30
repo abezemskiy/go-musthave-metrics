@@ -12,6 +12,7 @@ type (
 		AddGauge(string, float64)
 		AddCounter(string, int64)
 		GetAllMetrics() string
+		AddMetricsFromSlice([]Metrics) error
 	}
 
 	// Структура для работы с метриками json формата
