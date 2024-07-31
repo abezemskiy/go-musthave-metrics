@@ -13,6 +13,8 @@ type (
 		AddCounter(string, int64)
 		GetAllMetrics() string
 		AddMetricsFromSlice([]Metrics) error
+		GetCounters() map[string]int64
+		GetGauges() map[string]float64
 	}
 
 	// Структура для работы с метриками json формата

@@ -350,142 +350,142 @@ func TestUpdateMetrics(t *testing.T) {
 	type want struct {
 		code        int
 		contentType string
-		storage     storage.MemStorage
+		storage     *storage.MemStorage
 	}
 	tests := []struct {
-		name    string
-		arg     storage.MemStorage
+		name string
+		//arg     storage.MemStorage
 		request string
 		want    want
 	}{
 		{
-			name:    "Counter testcount#1",
-			arg:     *stor,
+			name: "Counter testcount#1",
+			//arg:     *stor,
 			request: "/update/counter/testcount1/3",
 			want: want{
 				code:        200,
 				contentType: "text/plain",
-				storage:     *storage.NewMemStorage(nil, map[string]int64{"testcount1": 4}),
+				storage:     storage.NewMemStorage(nil, map[string]int64{"testcount1": 4}),
 			},
 		},
 		{
-			name:    "Counter testcount#2",
-			arg:     *stor,
+			name: "Counter testcount#2",
+			//arg:     *stor,
 			request: "/update/counter/testcount2/1",
 			want: want{
 				code:        200,
 				contentType: "text/plain",
-				storage:     *storage.NewMemStorage(nil, map[string]int64{"testcount1": 4, "testcount2": 1}),
+				storage:     storage.NewMemStorage(nil, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
 		},
 		{
-			name:    "Counter testguage#1",
-			arg:     *stor,
+			name: "Counter testguage#1",
+			//arg:     *stor,
 			request: "/update/gauge/testgauge1/1",
 			want: want{
 				code:        200,
 				contentType: "text/plain",
-				storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 1}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+				storage:     storage.NewMemStorage(map[string]float64{"testgauge1": 1}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
 		},
 		{
-			name:    "Counter testguage#2",
-			arg:     *stor,
+			name: "Counter testguage#2",
+			//arg:     *stor,
 			request: "/update/gauge/testgauge1/3",
 			want: want{
 				code:        200,
 				contentType: "text/plain",
-				storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 3}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+				storage:     storage.NewMemStorage(map[string]float64{"testgauge1": 3}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
 		},
 		{
-			name:    "Counter testguage#3",
-			arg:     *stor,
+			name: "Counter testguage#3",
+			//arg:     *stor,
 			request: "/update/gauge/testgauge2/10",
 			want: want{
 				code:        200,
 				contentType: "text/plain",
-				storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+				storage:     storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
 		},
 		{
-			name:    "Counter errort#1",
-			arg:     *stor,
+			name: "Counter errort#1",
+			//arg:     *stor,
 			request: "/update/counter/testcount1/aaaaa",
 			want: want{
 				code:        400,
 				contentType: "text/plain",
-				storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+				storage:     storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
 		},
 		{
-			name:    "Counter errort#2",
-			arg:     *stor,
+			name: "Counter errort#2",
+			//arg:     *stor,
 			request: "/update/counter/testcount1/",
 			want: want{
 				code:        404,
 				contentType: "text/plain",
-				storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+				storage:     storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
 		},
 		{
-			name:    "Counter errort#3",
-			arg:     *stor,
+			name: "Counter errort#3",
+			//arg:     *stor,
 			request: "/update/counter/testcount1/1.12",
 			want: want{
 				code:        400,
 				contentType: "text/plain",
-				storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+				storage:     storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
 		},
 		{
-			name:    "Guage errort#1",
-			arg:     *stor,
+			name: "Guage errort#1",
+			//arg:     *stor,
 			request: "/update/gauge/testguage1/aaaaa",
 			want: want{
 				code:        400,
 				contentType: "text/plain",
-				storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+				storage:     storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
 		},
 		{
-			name:    "Guage errort#2",
-			arg:     *stor,
+			name: "Guage errort#2",
+			//arg:     *stor,
 			request: "/update/gauge/testguage1/",
 			want: want{
 				code:        404,
 				contentType: "text/plain",
-				storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+				storage:     storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
 		},
 		{
-			name:    "BadRequest status#1",
-			arg:     *stor,
+			name: "BadRequest status#1",
+			//arg:     *stor,
 			request: "/update/gauges/testguage1/aaaaa",
 			want: want{
 				code:        400,
 				contentType: "text/plain",
-				storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+				storage:     storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
 		},
 		{
-			name:    "Notfound status#1",
-			arg:     *stor,
+			name: "Notfound status#1",
+			//arg:     *stor,
 			request: "/update/gauge/testguage1",
 			want: want{
 				code:        404,
 				contentType: "text/plain",
-				storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+				storage:     storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
 		},
 		{
-			name:    "Counter errort#4",
-			arg:     *stor,
+			name: "Counter errort#4",
+			//arg:     *stor,
 			request: "/update/gauge/alloc/233184",
 			want: want{
 				code:        200,
 				contentType: "text/plain",
-				storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10, "alloc": 233184}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+				storage:     storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10, "alloc": 233184}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 			},
 		},
 	}
@@ -493,7 +493,7 @@ func TestUpdateMetrics(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := chi.NewRouter()
 			r.Post("/update/{metricType}/{metricName}/{metricValue}", func(res http.ResponseWriter, req *http.Request) {
-				UpdateMetrics(res, req, &tt.arg, saver)
+				UpdateMetrics(res, req, stor, saver)
 			})
 
 			request := httptest.NewRequest(http.MethodPost, tt.request, nil)
@@ -504,7 +504,8 @@ func TestUpdateMetrics(t *testing.T) {
 			defer res.Body.Close() // Закрываем тело ответа
 			// проверяем код ответа
 			assert.Equal(t, tt.want.code, res.StatusCode)
-			assert.Equal(t, tt.want.storage, tt.arg)
+			assert.Equal(t, tt.want.storage.GetCounters(), stor.GetCounters())
+			assert.Equal(t, tt.want.storage.GetGauges(), stor.GetGauges())
 		})
 	}
 	// Удаляю тестовый файл
@@ -527,18 +528,18 @@ func TestUpdateMetricsJSON(t *testing.T) {
 		type want struct {
 			code        int
 			contentType string
-			storage     storage.MemStorage
+			storage     *storage.MemStorage
 		}
 		tests := []struct {
-			name    string
-			arg     storage.MemStorage
+			name string
+			//arg     storage.MemStorage
 			request string
 			body    repositories.Metrics
 			want    want
 		}{
 			{
-				name:    "Counter testcount#1",
-				arg:     *stor,
+				name: "Counter testcount#1",
+				//arg:     *stor,
 				request: "/update",
 				body: repositories.Metrics{
 					ID:    "testcount1",
@@ -548,12 +549,12 @@ func TestUpdateMetricsJSON(t *testing.T) {
 				want: want{
 					code:        200,
 					contentType: "application/json",
-					storage:     *storage.NewMemStorage(nil, map[string]int64{"testcount1": 4}),
+					storage:     storage.NewMemStorage(nil, map[string]int64{"testcount1": 4}),
 				},
 			},
 			{
-				name:    "Counter testcount#2",
-				arg:     *stor,
+				name: "Counter testcount#2",
+				//arg:     *stor,
 				request: "/update",
 				body: repositories.Metrics{
 					ID:    "testcount2",
@@ -563,12 +564,12 @@ func TestUpdateMetricsJSON(t *testing.T) {
 				want: want{
 					code:        200,
 					contentType: "application/json",
-					storage:     *storage.NewMemStorage(nil, map[string]int64{"testcount1": 4, "testcount2": 1}),
+					storage:     storage.NewMemStorage(nil, map[string]int64{"testcount1": 4, "testcount2": 1}),
 				},
 			},
 			{
-				name:    "Counter testguage#1",
-				arg:     *stor,
+				name: "Counter testguage#1",
+				//arg:     *stor,
 				request: "/update",
 				body: repositories.Metrics{
 					ID:    "testgauge1",
@@ -578,12 +579,12 @@ func TestUpdateMetricsJSON(t *testing.T) {
 				want: want{
 					code:        200,
 					contentType: "application/json",
-					storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 1}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+					storage:     storage.NewMemStorage(map[string]float64{"testgauge1": 1}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 				},
 			},
 			{
-				name:    "Counter testguage#2",
-				arg:     *stor,
+				name: "Counter testguage#2",
+				//arg:     *stor,
 				request: "/update",
 				body: repositories.Metrics{
 					ID:    "testgauge1",
@@ -593,12 +594,12 @@ func TestUpdateMetricsJSON(t *testing.T) {
 				want: want{
 					code:        200,
 					contentType: "application/json",
-					storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 3}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+					storage:     storage.NewMemStorage(map[string]float64{"testgauge1": 3}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 				},
 			},
 			{
-				name:    "Counter testguage#3",
-				arg:     *stor,
+				name: "Counter testguage#3",
+				//arg:     *stor,
 				request: "/update",
 				body: repositories.Metrics{
 					ID:    "testgauge2",
@@ -608,12 +609,12 @@ func TestUpdateMetricsJSON(t *testing.T) {
 				want: want{
 					code:        200,
 					contentType: "application/json",
-					storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+					storage:     storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 				},
 			},
 			{
-				name:    "Counter errort#1",
-				arg:     *stor,
+				name: "Counter errort#1",
+				//arg:     *stor,
 				request: "/update",
 				body: repositories.Metrics{
 					ID:    "testcount1",
@@ -623,12 +624,12 @@ func TestUpdateMetricsJSON(t *testing.T) {
 				want: want{
 					code:        400,
 					contentType: "application/json",
-					storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+					storage:     storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 				},
 			},
 			{
-				name:    "Guage errort#1",
-				arg:     *stor,
+				name: "Guage errort#1",
+				//arg:     *stor,
 				request: "/update",
 				body: repositories.Metrics{
 					ID:    "testguage1",
@@ -638,7 +639,7 @@ func TestUpdateMetricsJSON(t *testing.T) {
 				want: want{
 					code:        400,
 					contentType: "application/json",
-					storage:     *storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+					storage:     storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
 				},
 			},
 		}
@@ -646,7 +647,7 @@ func TestUpdateMetricsJSON(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				r := chi.NewRouter()
 				r.Post("/update", func(res http.ResponseWriter, req *http.Request) {
-					UpdateMetricsJSON(res, req, &tt.arg, saver)
+					UpdateMetricsJSON(res, req, stor, saver)
 				})
 
 				// сериализую струтктуру с метриками в json
@@ -663,7 +664,8 @@ func TestUpdateMetricsJSON(t *testing.T) {
 				defer res.Body.Close() // Закрываем тело ответа
 				// проверяем код ответа
 				assert.Equal(t, tt.want.code, res.StatusCode)
-				assert.Equal(t, tt.want.storage, tt.arg)
+				assert.Equal(t, tt.want.storage.GetCounters(), stor.GetCounters())
+				assert.Equal(t, tt.want.storage.GetGauges(), stor.GetGauges())
 
 				// Проверяю тело ответа, если код ответа 200
 				if res.StatusCode == http.StatusOK {

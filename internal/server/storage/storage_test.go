@@ -24,8 +24,11 @@ func TestNewDefaultMemStorage(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewDefaultMemStorage(); !reflect.DeepEqual(*got, *tt.want) {
-				t.Errorf("NewDefaultMemStorage() = %v, want %v", *got, *tt.want)
+			if got := NewDefaultMemStorage(); !reflect.DeepEqual(got.counters, tt.want.counters) {
+				t.Errorf("NewDefaultMemStorage() = %v, want %v", got.counters, tt.want.counters)
+			}
+			if got := NewDefaultMemStorage(); !reflect.DeepEqual(got.gauges, tt.want.gauges) {
+				t.Errorf("NewDefaultMemStorage() = %v, want %v", got.gauges, tt.want.gauges)
 			}
 		})
 	}
@@ -89,8 +92,11 @@ func TestNewMemStorage(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewMemStorage(tt.args.gaugesArg, tt.args.countersArg); !reflect.DeepEqual(*got, *tt.want) {
-				t.Errorf("NewMemStorage() = %v, want %v", *got, *tt.want)
+			if got := NewMemStorage(tt.args.gaugesArg, tt.args.countersArg); !reflect.DeepEqual(got.counters, tt.want.counters) {
+				t.Errorf("NewMemStorage() = %v, want %v", got.counters, tt.want.counters)
+			}
+			if got := NewMemStorage(tt.args.gaugesArg, tt.args.countersArg); !reflect.DeepEqual(got.gauges, tt.want.gauges) {
+				t.Errorf("NewMemStorage() = %v, want %v", got.gauges, tt.want.gauges)
 			}
 		})
 	}
@@ -126,8 +132,11 @@ func TestMemStorageAddGauge(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.args.stor.AddGauge(tt.args.name, tt.args.value)
-			if !reflect.DeepEqual(*tt.args.stor, *tt.want) {
-				t.Errorf("NewDefaultMemStorage() = %v, want %v", *tt.args.stor, *tt.want)
+			if !reflect.DeepEqual(tt.args.stor.counters, tt.want.counters) {
+				t.Errorf("NewDefaultMemStorage() = %v, want %v", tt.args.stor.counters, tt.want.counters)
+			}
+			if !reflect.DeepEqual(tt.args.stor.gauges, tt.want.gauges) {
+				t.Errorf("NewDefaultMemStorage() = %v, want %v", tt.args.stor.gauges, tt.want.gauges)
 			}
 		})
 	}
@@ -163,8 +172,11 @@ func TestMemStorageAddCounter(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.args.stor.AddCounter(tt.args.name, tt.args.value)
-			if !reflect.DeepEqual(*tt.args.stor, *tt.want) {
-				t.Errorf("NewDefaultMemStorage() = %v, want %v", *tt.args.stor, *tt.want)
+			if !reflect.DeepEqual(tt.args.stor.counters, tt.want.counters) {
+				t.Errorf("NewDefaultMemStorage() = %v, want %v", tt.args.stor.counters, tt.want.counters)
+			}
+			if !reflect.DeepEqual(tt.args.stor.gauges, tt.want.gauges) {
+				t.Errorf("NewDefaultMemStorage() = %v, want %v", tt.args.stor.gauges, tt.want.gauges)
 			}
 		})
 	}

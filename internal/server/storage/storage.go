@@ -2,6 +2,7 @@ package storage
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
 )
@@ -9,6 +10,7 @@ import (
 // Хранилище метрик ------------------------------------------------------------------------------------
 
 type MemStorage struct {
+	sync.Mutex
 	gauges   map[string]float64
 	counters map[string]int64
 }
@@ -75,26 +77,33 @@ func (storage *MemStorage) GetAllMetrics() string {
 }
 
 func (storage *MemStorage) AddMetricsFromSlice(metrics []repositories.Metrics) error {
-	if metrics == nil{
+	if metrics == nil {
 		return nil
 	}
 
-	for _, metric := range metrics{
-		if metric.MType == "gauge"{
-			if metric.Value == nil{
+	for _, metric := range metrics {
+		if metric.MType == "gauge" {
+			if metric.Value == nil {
 				return fmt.Errorf("invalid metric, value of gauge metric is nil")
 			}
 			storage.AddGauge(metric.ID, *metric.Value)
-		}else if metric.MType == "counter"{
-			if metric.Delta == nil{
+		} else if metric.MType == "counter" {
+			if metric.Delta == nil {
 				return fmt.Errorf("invalid metric, delta of counter metric is nil")
 			}
 			storage.AddCounter(metric.ID, *metric.Delta)
-		}else{
+		} else {
 			return fmt.Errorf("invalid metric, undefined type of metric: %s", metric.MType)
 		}
 	}
 	return nil
+}
+
+func (storage *MemStorage) GetCounters() map[string]int64{
+	return storage.counters
+}
+func (storage *MemStorage) GetGauges() map[string]float64{
+	return storage.gauges
 }
 
 // Хранилище метрик -----------------------------------------------------------------------------------------

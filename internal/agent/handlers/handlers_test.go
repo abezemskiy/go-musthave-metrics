@@ -31,7 +31,7 @@ func TestPush(t *testing.T) {
 	tests := []struct {
 		name     string
 		args     args
-		wantStor storage.MemStorage
+		wantStor *storage.MemStorage
 		wantErr  bool
 	}{
 		{
@@ -43,7 +43,7 @@ func TestPush(t *testing.T) {
 				valueMetric: "4",
 				client:      resty.New(),
 			},
-			wantStor: *storage.NewMemStorage(nil, map[string]int64{"counter1": 4}),
+			wantStor: storage.NewMemStorage(nil, map[string]int64{"counter1": 4}),
 			wantErr:  false,
 		},
 		{
@@ -55,7 +55,7 @@ func TestPush(t *testing.T) {
 				valueMetric: "4",
 				client:      resty.New(),
 			},
-			wantStor: *storage.NewMemStorage(nil, map[string]int64{"counter1": 4}),
+			wantStor: storage.NewMemStorage(nil, map[string]int64{"counter1": 4}),
 			wantErr:  true,
 		},
 		{
@@ -67,7 +67,7 @@ func TestPush(t *testing.T) {
 				valueMetric: "3.14",
 				client:      resty.New(),
 			},
-			wantStor: *storage.NewMemStorage(map[string]float64{"gauge1": 3.14}, map[string]int64{"counter1": 4}),
+			wantStor: storage.NewMemStorage(map[string]float64{"gauge1": 3.14}, map[string]int64{"counter1": 4}),
 			wantErr:  false,
 		},
 		{
@@ -79,7 +79,7 @@ func TestPush(t *testing.T) {
 				valueMetric: "3.14",
 				client:      resty.New(),
 			},
-			wantStor: *storage.NewMemStorage(map[string]float64{"gauge1": 3.14}, map[string]int64{"counter1": 4}),
+			wantStor: storage.NewMemStorage(map[string]float64{"gauge1": 3.14}, map[string]int64{"counter1": 4}),
 			wantErr:  true,
 		},
 	}
@@ -97,7 +97,8 @@ func TestPush(t *testing.T) {
 			if err := Push(ts.URL, tt.args.action, tt.args.typeMetric, tt.args.nameMetric, tt.args.valueMetric, tt.args.client); (err != nil) != tt.wantErr {
 				t.Errorf("PushJSON() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			assert.Equal(t, tt.wantStor, *stor)
+			assert.Equal(t, tt.wantStor.GetCounters(), stor.GetCounters())
+			assert.Equal(t, tt.wantStor.GetGauges(), stor.GetGauges())
 		})
 	}
 	// Удаляю тестовый файл
@@ -120,7 +121,7 @@ func TestPushJSON(t *testing.T) {
 	tests := []struct {
 		name     string
 		args     args
-		wantStor storage.MemStorage
+		wantStor *storage.MemStorage
 		wantErr  bool
 	}{
 		{
@@ -132,7 +133,7 @@ func TestPushJSON(t *testing.T) {
 				valueMetric: "4",
 				client:      resty.New(),
 			},
-			wantStor: *storage.NewMemStorage(nil, map[string]int64{"counter1": 4}),
+			wantStor: storage.NewMemStorage(nil, map[string]int64{"counter1": 4}),
 			wantErr:  false,
 		},
 		{
@@ -144,7 +145,7 @@ func TestPushJSON(t *testing.T) {
 				valueMetric: "4",
 				client:      resty.New(),
 			},
-			wantStor: *storage.NewMemStorage(nil, map[string]int64{"counter1": 4}),
+			wantStor: storage.NewMemStorage(nil, map[string]int64{"counter1": 4}),
 			wantErr:  true,
 		},
 		{
@@ -156,7 +157,7 @@ func TestPushJSON(t *testing.T) {
 				valueMetric: "3.14",
 				client:      resty.New(),
 			},
-			wantStor: *storage.NewMemStorage(map[string]float64{"gauge1": 3.14}, map[string]int64{"counter1": 4}),
+			wantStor: storage.NewMemStorage(map[string]float64{"gauge1": 3.14}, map[string]int64{"counter1": 4}),
 			wantErr:  false,
 		},
 		{
@@ -168,7 +169,7 @@ func TestPushJSON(t *testing.T) {
 				valueMetric: "3.14",
 				client:      resty.New(),
 			},
-			wantStor: *storage.NewMemStorage(map[string]float64{"gauge1": 3.14}, map[string]int64{"counter1": 4}),
+			wantStor: storage.NewMemStorage(map[string]float64{"gauge1": 3.14}, map[string]int64{"counter1": 4}),
 			wantErr:  true,
 		},
 	}
@@ -184,7 +185,8 @@ func TestPushJSON(t *testing.T) {
 			if err := PushJSON(ts.URL, tt.args.action, tt.args.typeMetric, tt.args.nameMetric, tt.args.valueMetric, tt.args.client); (err != nil) != tt.wantErr {
 				t.Errorf("PushJSON() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			assert.Equal(t, tt.wantStor, *stor)
+			assert.Equal(t, tt.wantStor.GetCounters(), stor.GetCounters())
+			assert.Equal(t, tt.wantStor.GetGauges(), stor.GetGauges())
 		})
 	}
 	// Удаляю тестовый файл
