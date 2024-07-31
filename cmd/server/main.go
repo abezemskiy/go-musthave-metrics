@@ -21,7 +21,7 @@ func main() {
 
 	stor := storage.NewDefaultMemStorage()
 
-	saver, err := saver.NewSaverWriter(saver.GetFilestoragePath())
+	saver, err := saver.NewWriter(saver.GetFilestoragePath())
 	if err != nil {
 		log.Fatalf("Error create writer for saving metrics : %v\n", err)
 	}
@@ -29,35 +29,28 @@ func main() {
 	if err := run(stor, saver); err != nil {
 		log.Fatalf("Error starting server: %v\n", err)
 	}
-}
-
-func AddMetricsFromFile(stor repositories.ServerRepo) {
-	if saver.GetRestore() {
-		reader, err := saver.NewSaverReader(saver.GetFilestoragePath())
-		if err != nil {
-			log.Fatalf("Error create writer for saving metrics : %v\n", err)
-		}
-		metrics, err := reader.ReadMetrics()
-		if err != nil {
-			log.Fatalf("read metrics from file error, file: %s. Error is: %s\n", saver.GetFilestoragePath(), error.Error(err))
-		}
-		if err := stor.AddMetricsFromSlice(metrics); err != nil {
-			log.Fatalf("add metrics from file: %s into server error. Error is: %s\n", saver.GetFilestoragePath(), error.Error(err))
-		}
+	// При штатном завершении работы сервера накопленные данные сохраняются
+	if err := saver.FlushMetrics(); err != nil {
+		logger.ServerLog.Error("flushing metrics error", zap.String("error", error.Error(err)))
 	}
+	log.Println("Stop server")
 }
 
 // функция run будет полезна при инициализации зависимостей сервера перед запуском
-func run(stor repositories.ServerRepo, saver saver.WriterInterface) error {
+func run(stor repositories.ServerRepo, saverVar saver.WriterInterface) error {
 	if err := logger.Initialize(flagLogLevel); err != nil {
 		return err
 	}
+	reader, err := saver.NewReader(saver.GetFilestoragePath())
+	if err != nil {
+		log.Fatalf("Error create writer for saving metrics : %v\n", err)
+	}
 	// Загружаю на сервер метрики, сохраненные в предыдущих запусках
-	AddMetricsFromFile(stor)
-	go FlashMetricsToFile(saver)
+	saver.AddMetricsFromFile(stor, reader)
+	go FlashMetricsToFile(saverVar)
 
 	logger.ServerLog.Info("Running server", zap.String("address", flagNetAddr))
-	return http.ListenAndServe(flagNetAddr, MetricRouter(stor, saver))
+	return http.ListenAndServe(flagNetAddr, MetricRouter(stor, saverVar))
 }
 
 func MetricRouter(stor repositories.ServerRepo, saver saver.WriterInterface) chi.Router {

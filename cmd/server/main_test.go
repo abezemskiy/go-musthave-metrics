@@ -24,7 +24,7 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string) *http.R
 
 func TestHandlerUpdate(t *testing.T) {
 	stor := storage.NewMemStorage(nil, map[string]int64{"testcount1": 1})
-	saver, err := saver.NewSaverWriter("./TestHandlerUpdate.json")
+	saver, err := saver.NewWriter("./TestHandlerUpdate.json")
 	require.NoError(t, err)
 
 	ts := httptest.NewServer(MetricRouter(stor, saver))

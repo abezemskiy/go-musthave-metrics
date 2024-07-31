@@ -18,7 +18,7 @@ import (
 
 func TestPush(t *testing.T) {
 	stor := storage.NewDefaultMemStorage()
-	saver, err := saver.NewSaverWriter("./TestPush.json")
+	saver, err := saver.NewWriter("./TestPush.json")
 	require.NoError(t, err)
 
 	type args struct {
@@ -107,7 +107,7 @@ func TestPush(t *testing.T) {
 
 func TestPushJSON(t *testing.T) {
 	stor := storage.NewDefaultMemStorage()
-	saver, err := saver.NewSaverWriter("./TestPushJSON.json")
+	saver, err := saver.NewWriter("./TestPushJSON.json")
 	require.NoError(t, err)
 
 	type args struct {
