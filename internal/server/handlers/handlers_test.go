@@ -221,8 +221,10 @@ func TestGetMetricJSON(t *testing.T) {
 			})
 		}
 	}
+
+	// Тест с проверкой загрузки метрик из файла при инициализации
 	{
-		stor := storage.NewMemStorage(map[string]float64{"testgauge1": 3.134, "testgauge2": 10, "alloc": 233184}, map[string]int64{"testcount1": 4, "testcount2": 1})
+		stor := storage.NewMemStorage(map[string]float64{"testgauge1": 3.189, "testgauge2": 10, "alloc": 233184}, map[string]int64{"testcount1": 4, "testcount2": 1})
 
 		delta := func(d int64) *int64 {
 			return &d
@@ -235,6 +237,11 @@ func TestGetMetricJSON(t *testing.T) {
 		saverVar, err := saver.NewWriter(nameTestFile)
 		require.NoError(t, err)
 
+		m0 := repositories.Metrics{
+			ID:    "testGauge0",
+			MType: "gauge",
+			Value: value(111.11),
+		}
 		m1 := repositories.Metrics{
 			ID:    "testGauge1",
 			MType: "gauge",
@@ -243,11 +250,20 @@ func TestGetMetricJSON(t *testing.T) {
 		m2 := repositories.Metrics{
 			ID:    "testCounter1",
 			MType: "counter",
-			Delta: delta(17),
+			Delta: delta(30),
 		}
-		saverVar.WriteMetrics(m1)
-		saverVar.WriteMetrics(m2)
-		errFlush := saverVar.FlushMetrics()
+
+		// Записываю метрики в файл, для загрузки в сервер при его инициализации
+		storForFluahFile := storage.NewDefaultMemStorage()
+		metrcSlice := []repositories.Metrics{
+			m0,
+			m1,
+			m2,
+		}
+		errWrite := storForFluahFile.AddMetricsFromSlice(metrcSlice)
+		require.NoError(t, errWrite)
+
+		errFlush := saverVar.WriteMetrics(storForFluahFile)
 		require.NoError(t, errFlush)
 
 		reader, erReader := saver.NewReader(nameTestFile)
@@ -268,6 +284,23 @@ func TestGetMetricJSON(t *testing.T) {
 			want    want
 		}{
 			{
+				name:    "Test gauge#0",
+				request: "/value/",
+				body: repositories.Metrics{
+					ID:    "testGauge0",
+					MType: "gauge",
+				},
+				want: want{
+					code:        200,
+					contentType: "application/json",
+					metrics: repositories.Metrics{
+						ID:    "testGauge0",
+						MType: "gauge",
+						Value: value(111.11),
+					},
+				},
+			},
+			{
 				name:    "Counter testcount#1",
 				request: "/value/",
 				body: repositories.Metrics{
@@ -280,7 +313,7 @@ func TestGetMetricJSON(t *testing.T) {
 					metrics: repositories.Metrics{
 						ID:    "testCounter1",
 						MType: "counter",
-						Delta: delta(17),
+						Delta: delta(30),
 					},
 				},
 			},
@@ -332,6 +365,17 @@ func TestGetMetricJSON(t *testing.T) {
 					er := dec.Decode(&resMetric)
 					require.NoError(t, er)
 
+					assert.Equal(t, tt.want.metrics.ID, resMetric.ID)
+					if tt.want.metrics.MType == "counter" {
+						assert.NotEqual(t, nil, tt.want.metrics.Delta)
+						assert.NotEqual(t, nil, resMetric.Delta)
+						assert.Equal(t, *tt.want.metrics.Delta, *resMetric.Delta)
+					} else {
+						assert.NotEqual(t, nil, tt.want.metrics.Value)
+						assert.NotEqual(t, nil, resMetric.Value)
+						assert.Equal(t, *tt.want.metrics.Value, *resMetric.Value)
+					}
+					assert.Equal(t, tt.want.metrics.MType, resMetric.MType)
 					assert.Equal(t, tt.want.metrics, resMetric)
 				}
 			})
@@ -344,23 +388,19 @@ func TestGetMetricJSON(t *testing.T) {
 
 func TestUpdateMetrics(t *testing.T) {
 	stor := storage.NewMemStorage(nil, map[string]int64{"testcount1": 1})
-	saver, err := saver.NewWriter("./TestUpdateMetrics.json")
 
-	require.NoError(t, err)
 	type want struct {
 		code        int
 		contentType string
 		storage     *storage.MemStorage
 	}
 	tests := []struct {
-		name string
-		//arg     storage.MemStorage
+		name    string
 		request string
 		want    want
 	}{
 		{
-			name: "Counter testcount#1",
-			//arg:     *stor,
+			name:    "Counter testcount#1",
 			request: "/update/counter/testcount1/3",
 			want: want{
 				code:        200,
@@ -369,8 +409,7 @@ func TestUpdateMetrics(t *testing.T) {
 			},
 		},
 		{
-			name: "Counter testcount#2",
-			//arg:     *stor,
+			name:    "Counter testcount#2",
 			request: "/update/counter/testcount2/1",
 			want: want{
 				code:        200,
@@ -379,8 +418,7 @@ func TestUpdateMetrics(t *testing.T) {
 			},
 		},
 		{
-			name: "Counter testguage#1",
-			//arg:     *stor,
+			name:    "Counter testguage#1",
 			request: "/update/gauge/testgauge1/1",
 			want: want{
 				code:        200,
@@ -389,8 +427,7 @@ func TestUpdateMetrics(t *testing.T) {
 			},
 		},
 		{
-			name: "Counter testguage#2",
-			//arg:     *stor,
+			name:    "Counter testguage#2",
 			request: "/update/gauge/testgauge1/3",
 			want: want{
 				code:        200,
@@ -399,8 +436,7 @@ func TestUpdateMetrics(t *testing.T) {
 			},
 		},
 		{
-			name: "Counter testguage#3",
-			//arg:     *stor,
+			name:    "Counter testguage#3",
 			request: "/update/gauge/testgauge2/10",
 			want: want{
 				code:        200,
@@ -409,8 +445,7 @@ func TestUpdateMetrics(t *testing.T) {
 			},
 		},
 		{
-			name: "Counter errort#1",
-			//arg:     *stor,
+			name:    "Counter errort#1",
 			request: "/update/counter/testcount1/aaaaa",
 			want: want{
 				code:        400,
@@ -419,8 +454,7 @@ func TestUpdateMetrics(t *testing.T) {
 			},
 		},
 		{
-			name: "Counter errort#2",
-			//arg:     *stor,
+			name:    "Counter errort#2",
 			request: "/update/counter/testcount1/",
 			want: want{
 				code:        404,
@@ -429,8 +463,7 @@ func TestUpdateMetrics(t *testing.T) {
 			},
 		},
 		{
-			name: "Counter errort#3",
-			//arg:     *stor,
+			name:    "Counter errort#3",
 			request: "/update/counter/testcount1/1.12",
 			want: want{
 				code:        400,
@@ -439,8 +472,7 @@ func TestUpdateMetrics(t *testing.T) {
 			},
 		},
 		{
-			name: "Guage errort#1",
-			//arg:     *stor,
+			name:    "Guage errort#1",
 			request: "/update/gauge/testguage1/aaaaa",
 			want: want{
 				code:        400,
@@ -449,8 +481,7 @@ func TestUpdateMetrics(t *testing.T) {
 			},
 		},
 		{
-			name: "Guage errort#2",
-			//arg:     *stor,
+			name:    "Guage errort#2",
 			request: "/update/gauge/testguage1/",
 			want: want{
 				code:        404,
@@ -459,8 +490,7 @@ func TestUpdateMetrics(t *testing.T) {
 			},
 		},
 		{
-			name: "BadRequest status#1",
-			//arg:     *stor,
+			name:    "BadRequest status#1",
 			request: "/update/gauges/testguage1/aaaaa",
 			want: want{
 				code:        400,
@@ -469,8 +499,7 @@ func TestUpdateMetrics(t *testing.T) {
 			},
 		},
 		{
-			name: "Notfound status#1",
-			//arg:     *stor,
+			name:    "Notfound status#1",
 			request: "/update/gauge/testguage1",
 			want: want{
 				code:        404,
@@ -479,8 +508,7 @@ func TestUpdateMetrics(t *testing.T) {
 			},
 		},
 		{
-			name: "Counter errort#4",
-			//arg:     *stor,
+			name:    "Counter errort#4",
 			request: "/update/gauge/alloc/233184",
 			want: want{
 				code:        200,
@@ -493,7 +521,7 @@ func TestUpdateMetrics(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := chi.NewRouter()
 			r.Post("/update/{metricType}/{metricName}/{metricValue}", func(res http.ResponseWriter, req *http.Request) {
-				UpdateMetrics(res, req, stor, saver)
+				UpdateMetrics(res, req, stor)
 			})
 
 			request := httptest.NewRequest(http.MethodPost, tt.request, nil)
@@ -508,16 +536,11 @@ func TestUpdateMetrics(t *testing.T) {
 			assert.Equal(t, tt.want.storage.GetGauges(), stor.GetGauges())
 		})
 	}
-	// Удаляю тестовый файл
-	er := os.Remove("./TestUpdateMetrics.json")
-	require.NoError(t, er)
 }
 
 func TestUpdateMetricsJSON(t *testing.T) {
 	{
 		stor := storage.NewMemStorage(nil, map[string]int64{"testcount1": 1})
-		saver, err := saver.NewWriter("./TestUpdateMetricsJSON.json")
-		require.NoError(t, err)
 
 		delta := func(d int64) *int64 {
 			return &d
@@ -531,15 +554,13 @@ func TestUpdateMetricsJSON(t *testing.T) {
 			storage     *storage.MemStorage
 		}
 		tests := []struct {
-			name string
-			//arg     storage.MemStorage
+			name    string
 			request string
 			body    repositories.Metrics
 			want    want
 		}{
 			{
-				name: "Counter testcount#1",
-				//arg:     *stor,
+				name:    "Counter testcount#1",
 				request: "/update",
 				body: repositories.Metrics{
 					ID:    "testcount1",
@@ -553,8 +574,7 @@ func TestUpdateMetricsJSON(t *testing.T) {
 				},
 			},
 			{
-				name: "Counter testcount#2",
-				//arg:     *stor,
+				name:    "Counter testcount#2",
 				request: "/update",
 				body: repositories.Metrics{
 					ID:    "testcount2",
@@ -568,8 +588,7 @@ func TestUpdateMetricsJSON(t *testing.T) {
 				},
 			},
 			{
-				name: "Counter testguage#1",
-				//arg:     *stor,
+				name:    "Counter testguage#1",
 				request: "/update",
 				body: repositories.Metrics{
 					ID:    "testgauge1",
@@ -583,8 +602,7 @@ func TestUpdateMetricsJSON(t *testing.T) {
 				},
 			},
 			{
-				name: "Counter testguage#2",
-				//arg:     *stor,
+				name:    "Counter testguage#2",
 				request: "/update",
 				body: repositories.Metrics{
 					ID:    "testgauge1",
@@ -598,8 +616,7 @@ func TestUpdateMetricsJSON(t *testing.T) {
 				},
 			},
 			{
-				name: "Counter testguage#3",
-				//arg:     *stor,
+				name:    "Counter testguage#3",
 				request: "/update",
 				body: repositories.Metrics{
 					ID:    "testgauge2",
@@ -613,8 +630,7 @@ func TestUpdateMetricsJSON(t *testing.T) {
 				},
 			},
 			{
-				name: "Counter errort#1",
-				//arg:     *stor,
+				name:    "Counter errort#1",
 				request: "/update",
 				body: repositories.Metrics{
 					ID:    "testcount1",
@@ -628,8 +644,7 @@ func TestUpdateMetricsJSON(t *testing.T) {
 				},
 			},
 			{
-				name: "Guage errort#1",
-				//arg:     *stor,
+				name:    "Guage errort#1",
 				request: "/update",
 				body: repositories.Metrics{
 					ID:    "testguage1",
@@ -647,7 +662,7 @@ func TestUpdateMetricsJSON(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				r := chi.NewRouter()
 				r.Post("/update", func(res http.ResponseWriter, req *http.Request) {
-					UpdateMetricsJSON(res, req, stor, saver)
+					UpdateMetricsJSON(res, req, stor)
 				})
 
 				// сериализую струтктуру с метриками в json
@@ -679,8 +694,5 @@ func TestUpdateMetricsJSON(t *testing.T) {
 				}
 			})
 		}
-		// Удаляю тестовый файл
-		er := os.Remove("./TestUpdateMetricsJSON.json")
-		require.NoError(t, er)
 	}
 }

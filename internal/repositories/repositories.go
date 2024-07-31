@@ -15,6 +15,7 @@ type (
 		AddMetricsFromSlice([]Metrics) error
 		GetCounters() map[string]int64
 		GetGauges() map[string]float64
+		GetAllMetricsSlice() []Metrics
 	}
 
 	// Структура для работы с метриками json формата

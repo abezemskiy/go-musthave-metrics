@@ -30,7 +30,7 @@ func main() {
 		log.Fatalf("Error starting server: %v\n", err)
 	}
 	// При штатном завершении работы сервера накопленные данные сохраняются
-	if err := saver.FlushMetrics(); err != nil {
+	if err := saver.WriteMetrics(stor); err != nil {
 		logger.ServerLog.Error("flushing metrics error", zap.String("error", error.Error(err)))
 	}
 	log.Println("Stop server")
@@ -47,13 +47,13 @@ func run(stor repositories.ServerRepo, saverVar saver.WriterInterface) error {
 	}
 	// Загружаю на сервер метрики, сохраненные в предыдущих запусках
 	saver.AddMetricsFromFile(stor, reader)
-	go FlashMetricsToFile(saverVar)
+	go FlashMetricsToFile(stor, saverVar)
 
 	logger.ServerLog.Info("Running server", zap.String("address", flagNetAddr))
-	return http.ListenAndServe(flagNetAddr, MetricRouter(stor, saverVar))
+	return http.ListenAndServe(flagNetAddr, MetricRouter(stor))
 }
 
-func MetricRouter(stor repositories.ServerRepo, saver saver.WriterInterface) chi.Router {
+func MetricRouter(stor repositories.ServerRepo) chi.Router {
 
 	r := chi.NewRouter()
 
@@ -61,8 +61,8 @@ func MetricRouter(stor repositories.ServerRepo, saver saver.WriterInterface) chi
 		r.Get("/", logger.RequestLogger(compress.GzipMiddleware(handlers.GetGlobalHandler(stor))))
 
 		r.Route("/update", func(r chi.Router) {
-			r.Post("/", logger.RequestLogger(compress.GzipMiddleware(handlers.UpdateMetricsJSONHandler(stor, saver))))
-			r.Post("/{metricType}/{metricName}/{metricValue}", logger.RequestLogger(compress.GzipMiddleware(handlers.UpdateMetricsHandler(stor, saver))))
+			r.Post("/", logger.RequestLogger(compress.GzipMiddleware(handlers.UpdateMetricsJSONHandler(stor))))
+			r.Post("/{metricType}/{metricName}/{metricValue}", logger.RequestLogger(compress.GzipMiddleware(handlers.UpdateMetricsHandler(stor))))
 		})
 
 		r.Route("/value", func(r chi.Router) {
@@ -77,12 +77,12 @@ func MetricRouter(stor repositories.ServerRepo, saver saver.WriterInterface) chi
 	return r
 }
 
-func FlashMetricsToFile(saverVar saver.WriterInterface) {
+func FlashMetricsToFile(stor repositories.ServerRepo, saverVar saver.WriterInterface) {
 	logger.ServerLog.Debug("starting flush metrics to file")
 
 	time.Sleep(100 * time.Millisecond)
 	for {
-		err := saverVar.FlushMetrics()
+		err := saverVar.WriteMetrics(stor)
 		if err != nil {
 			logger.ServerLog.Error("flushing metrics error", zap.String("error", error.Error(err)))
 		}

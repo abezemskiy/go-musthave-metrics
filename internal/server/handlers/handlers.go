@@ -10,7 +10,6 @@ import (
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/logger"
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/saver"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 )
@@ -129,7 +128,7 @@ func GetMetric(res http.ResponseWriter, req *http.Request, storage repositories.
 
 // Фнукция для обновления метрик через json
 // Благодаря использованию роутера chi в этот хэндлер будут попадать только запросы POST
-func UpdateMetricsJSON(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo, saver saver.WriterInterface) {
+func UpdateMetricsJSON(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
 	// Проверка на nil для storage
 	if storage == nil {
 		http.Error(res, "Storage not initialized", http.StatusInternalServerError)
@@ -185,13 +184,10 @@ func UpdateMetricsJSON(res http.ResponseWriter, req *http.Request, storage repos
 	logger.ServerLog.Debug("server answer is", zap.String("Content-Encoding", res.Header().Get("Content-Encoding")),
 		zap.String("Status-Code", res.Header().Get("Status-Code")),
 		zap.String("Content-Type", res.Header().Get("Content-Type")))
-
-	// Заполняю буфер новой метрикой
-	saver.WriteMetrics(metrics)
 }
 
 // Благодаря использованию роутера chi в этот хэндлер будут попадать только запросы POST
-func UpdateMetrics(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo, saver saver.WriterInterface) {
+func UpdateMetrics(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
 
 	// Проверка на nil для storage
 	if storage == nil {
@@ -199,9 +195,6 @@ func UpdateMetrics(res http.ResponseWriter, req *http.Request, storage repositor
 		return
 	}
 	res.Header().Set("Content-Type", "text/plain")
-
-	// Необходима для заполенния буфера из которого метрики будут сохранены в файл
-	var metrics = repositories.Metrics{}
 
 	metricType := chi.URLParam(req, "metricType")
 	metricName := chi.URLParam(req, "metricName")
@@ -211,7 +204,6 @@ func UpdateMetrics(res http.ResponseWriter, req *http.Request, storage repositor
 		res.WriteHeader(http.StatusNotFound)
 		return
 	}
-	metrics.ID = metricName
 
 	switch metricType {
 	case "gauge":
@@ -221,8 +213,6 @@ func UpdateMetrics(res http.ResponseWriter, req *http.Request, storage repositor
 			return
 		}
 		storage.AddGauge(metricName, value)
-		metrics.MType = metricType
-		metrics.Value = &value
 	case "counter":
 		value, err := strconv.ParseInt(metricValue, 10, 64)
 		if err != nil {
@@ -230,16 +220,12 @@ func UpdateMetrics(res http.ResponseWriter, req *http.Request, storage repositor
 			return
 		}
 		storage.AddCounter(metricName, value)
-		metrics.MType = metricType
-		metrics.Delta = &value
 	default:
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	res.WriteHeader(http.StatusOK)
-	// Заполняю буфер новой метрикой
-	saver.WriteMetrics(metrics)
 }
 
 func GetGlobalHandler(stor repositories.ServerRepo) http.HandlerFunc {
@@ -249,16 +235,16 @@ func GetGlobalHandler(stor repositories.ServerRepo) http.HandlerFunc {
 	return fn
 }
 
-func UpdateMetricsJSONHandler(stor repositories.ServerRepo, saver saver.WriterInterface) http.HandlerFunc {
+func UpdateMetricsJSONHandler(stor repositories.ServerRepo) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
-		UpdateMetricsJSON(res, req, stor, saver)
+		UpdateMetricsJSON(res, req, stor)
 	}
 	return fn
 }
 
-func UpdateMetricsHandler(stor repositories.ServerRepo, saver saver.WriterInterface) http.HandlerFunc {
+func UpdateMetricsHandler(stor repositories.ServerRepo) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
-		UpdateMetrics(res, req, stor, saver)
+		UpdateMetrics(res, req, stor)
 	}
 	return fn
 }

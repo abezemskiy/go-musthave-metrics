@@ -36,14 +36,20 @@ func NewMemStorage(gaugesArg map[string]float64, countersArg map[string]int64) *
 }
 
 func (storage *MemStorage) AddGauge(name string, guage float64) {
+	storage.Mutex.Lock()
+	defer storage.Mutex.Unlock()
 	storage.gauges[name] = guage
 }
 
 func (storage *MemStorage) AddCounter(name string, counter int64) {
+	storage.Mutex.Lock()
+	defer storage.Mutex.Unlock()
 	storage.counters[name] += counter
 }
 
 func (storage *MemStorage) GetMetric(metricType, name string) (string, error) {
+	storage.Mutex.Lock()
+	defer storage.Mutex.Unlock()
 
 	if metricType == "gauge" {
 		val, ok := storage.gauges[name]
@@ -64,14 +70,40 @@ func (storage *MemStorage) GetMetric(metricType, name string) (string, error) {
 }
 
 func (storage *MemStorage) GetAllMetrics() string {
-	var result string
+	storage.Mutex.Lock()
+	defer storage.Mutex.Unlock()
 
+	var result string
 	for name, val := range storage.gauges {
 		result += fmt.Sprintf("%s: %g\n", name, val)
 	}
 
 	for name, val := range storage.counters {
 		result += fmt.Sprintf("%s: %d\n", name, val)
+	}
+	return result
+}
+
+func (storage *MemStorage) GetAllMetricsSlice() []repositories.Metrics {
+	storage.Mutex.Lock()
+	defer storage.Mutex.Unlock()
+
+	result := make([]repositories.Metrics, 0)
+	for name, value := range storage.gauges {
+		metric := repositories.Metrics{
+			ID:    name,
+			MType: "gauge",
+			Value: &value,
+		}
+		result = append(result, metric)
+	}
+	for name, delta := range storage.counters {
+		metric := repositories.Metrics{
+			ID:    name,
+			MType: "counter",
+			Delta: &delta,
+		}
+		result = append(result, metric)
 	}
 	return result
 }
@@ -99,10 +131,14 @@ func (storage *MemStorage) AddMetricsFromSlice(metrics []repositories.Metrics) e
 	return nil
 }
 
-func (storage *MemStorage) GetCounters() map[string]int64{
+func (storage *MemStorage) GetCounters() map[string]int64 {
+	storage.Mutex.Lock()
+	defer storage.Mutex.Unlock()
 	return storage.counters
 }
-func (storage *MemStorage) GetGauges() map[string]float64{
+func (storage *MemStorage) GetGauges() map[string]float64 {
+	storage.Mutex.Lock()
+	defer storage.Mutex.Unlock()
 	return storage.gauges
 }
 

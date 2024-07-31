@@ -8,7 +8,6 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
@@ -50,8 +49,8 @@ func GetRestore() bool {
 // end Global variable -------------------------------------------------
 
 type WriterInterface interface {
-	WriteMetrics(metric repositories.Metrics)
-	FlushMetrics() error
+	WriteMetrics(repositories.ServerRepo) error
+	//FlushMetrics() error
 }
 
 type ReadInterface interface {
@@ -60,50 +59,65 @@ type ReadInterface interface {
 
 // SaverWriter --------------------------------------------------------------------------------------------------
 type Writer struct {
-	sync.Mutex
-	file   *os.File
-	writer *bufio.Writer
-	buf    []repositories.Metrics
+	//sync.Mutex
+	file     *os.File
+	writer   *bufio.Writer
+	filename string
+	//buf    []repositories.Metrics
 }
 
 func NewWriter(filename string) (*Writer, error) {
-	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+	// При создании файла удаляю предыдущее содержимое
+	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
 		return nil, err
 	}
 	return &Writer{
 		file:   file,
 		writer: bufio.NewWriter(file),
-		buf:    make([]repositories.Metrics, 0),
+		//buf:    make([]repositories.Metrics, 0),
+		filename: filename,
 	}, nil
 }
 
-// Сохраняю метрики в буфер для последующей записи в файл
-func (storage *Writer) WriteMetrics(metric repositories.Metrics) {
-	storage.Mutex.Lock()
-	defer storage.Mutex.Unlock()
-	storage.buf = append(storage.buf, metric)
-
-	logger.ServerLog.Info("write metrics to buffer for future flushing to file")
+func (storage *Writer) Close() error {
+	if err := storage.writer.Flush(); err != nil {
+		return err
+	}
+	return storage.file.Close()
 }
 
-// Записываю накопленные метрики в файл и обнуляю буфер
-func (storage *Writer) FlushMetrics() error {
-	storage.Mutex.Lock()
-	defer storage.Mutex.Unlock()
-
-	if len(storage.buf) == 0 {
+// Сохраняю метрики из сервера в файл, причем предыдущее содержимое файла удаляю
+func (storage *Writer) WriteMetrics(metrics repositories.ServerRepo) error {
+	metricsSlice := metrics.GetAllMetricsSlice()
+	if len(metricsSlice) == 0 {
 		return nil
 	}
 
 	var metricsJSON bytes.Buffer
 	enc := json.NewEncoder(&metricsJSON)
-	if err := enc.Encode(storage.buf); err != nil {
+	if err := enc.Encode(metricsSlice); err != nil {
 		logger.ServerLog.Error("parse metric to json error", zap.String("error", error.Error(err)))
 		return err
 	}
 
-	n, err := storage.file.Write(metricsJSON.Bytes())
+	// Закрываем текущий writer и файл
+	if err := storage.Close(); err != nil {
+		logger.ServerLog.Error("close writer/file error", zap.String("error", error.Error(err)))
+		return err
+	}
+
+	// Переоткрываем файл с флагами O_WRONLY и O_TRUNC для очистки
+	file, err := os.OpenFile(storage.file.Name(), os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0666)
+	if err != nil {
+		logger.ServerLog.Error("reopen file with trunc error", zap.String("error", error.Error(err)))
+		return err
+	}
+
+	storage.file = file
+	storage.writer = bufio.NewWriter(file)
+
+	n, err := storage.writer.Write(metricsJSON.Bytes())
 	if err != nil {
 		logger.ServerLog.Error("write metrics to file error", zap.String("error", error.Error(err)))
 		return err
@@ -114,16 +128,89 @@ func (storage *Writer) FlushMetrics() error {
 		return fmt.Errorf("write metrics to file error: want write %d bytes, actual write %d bytes", len(metricsJSON.Bytes()), n)
 	}
 	if err := storage.writer.Flush(); err != nil {
-		logger.ServerLog.Error("flash buffer to the file error", zap.String("error", error.Error(err)))
+		logger.ServerLog.Error("flush buffer to the file error", zap.String("error", error.Error(err)))
 		return err
 	}
 
-	// Обнуляю накопленные метрики, которые уже сохранены в файл
-	storage.buf = make([]repositories.Metrics, 0)
-
-	logger.ServerLog.Info("flush metrcis to file")
+	logger.ServerLog.Info("write metrics to file")
 	return nil
 }
+
+// // Сохраняю метрики в буфер для последующей записи в файл
+// func (storage *Writer) WriteMetrics(metrics repositories.ServerRepo) error {
+// 	file, err := os.OpenFile(storage.filename, os.O_WRONLY|os.O_CREATE, 0666)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	metricsSlice := metrics.GetAllMetricsSlice()
+// 	if len(metricsSlice) == 0 {
+// 		return nil
+// 	}
+
+// 	var metricsJSON bytes.Buffer
+// 	enc := json.NewEncoder(&metricsJSON)
+// 	if err := enc.Encode(metricsSlice); err != nil {
+// 		logger.ServerLog.Error("parse metric to json error", zap.String("error", error.Error(err)))
+// 		return err
+// 	}
+
+// 	n, err := storage.file.Write(metricsJSON.Bytes())
+// 	if err != nil {
+// 		logger.ServerLog.Error("write metrics to file error", zap.String("error", error.Error(err)))
+// 		return err
+// 	}
+// 	if n != len(metricsJSON.Bytes()) {
+// 		logger.ServerLog.Error("write metrics to file error", zap.String("want write byte", strconv.Itoa(len(metricsJSON.Bytes()))),
+// 			zap.String("actual write byte", strconv.Itoa(n)))
+// 		return fmt.Errorf("write metrics to file error: want write %d bytes, actual write %d bytes", len(metricsJSON.Bytes()), n)
+// 	}
+// 	if err := storage.writer.Flush(); err != nil {
+// 		logger.ServerLog.Error("flash buffer to the file error", zap.String("error", error.Error(err)))
+// 		return err
+// 	}
+
+// 	logger.ServerLog.Info("write metrcis to file")
+// 	return nil
+// }
+
+// // Записываю накопленные метрики в файл и обнуляю буфер
+// func (storage *Writer) FlushMetrics() error {
+// 	storage.Mutex.Lock()
+// 	defer storage.Mutex.Unlock()
+
+// 	if len(storage.buf) == 0 {
+// 		return nil
+// 	}
+
+// 	var metricsJSON bytes.Buffer
+// 	enc := json.NewEncoder(&metricsJSON)
+// 	if err := enc.Encode(storage.buf); err != nil {
+// 		logger.ServerLog.Error("parse metric to json error", zap.String("error", error.Error(err)))
+// 		return err
+// 	}
+
+// 	n, err := storage.file.Write(metricsJSON.Bytes())
+// 	if err != nil {
+// 		logger.ServerLog.Error("write metrics to file error", zap.String("error", error.Error(err)))
+// 		return err
+// 	}
+// 	if n != len(metricsJSON.Bytes()) {
+// 		logger.ServerLog.Error("write metrics to file error", zap.String("want write byte", strconv.Itoa(len(metricsJSON.Bytes()))),
+// 			zap.String("actual write byte", strconv.Itoa(n)))
+// 		return fmt.Errorf("write metrics to file error: want write %d bytes, actual write %d bytes", len(metricsJSON.Bytes()), n)
+// 	}
+// 	if err := storage.writer.Flush(); err != nil {
+// 		logger.ServerLog.Error("flash buffer to the file error", zap.String("error", error.Error(err)))
+// 		return err
+// 	}
+
+// 	// Обнуляю накопленные метрики, которые уже сохранены в файл
+// 	storage.buf = make([]repositories.Metrics, 0)
+
+// 	logger.ServerLog.Info("flush metrcis to file")
+// 	return nil
+// }
 
 // end SaverWriter --------------------------------------------------------------------------------------------------
 

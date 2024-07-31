@@ -3,10 +3,8 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/saver"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,10 +22,8 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string) *http.R
 
 func TestHandlerUpdate(t *testing.T) {
 	stor := storage.NewMemStorage(nil, map[string]int64{"testcount1": 1})
-	saver, err := saver.NewWriter("./TestHandlerUpdate.json")
-	require.NoError(t, err)
 
-	ts := httptest.NewServer(MetricRouter(stor, saver))
+	ts := httptest.NewServer(MetricRouter(stor))
 
 	defer ts.Close()
 
@@ -37,14 +33,12 @@ func TestHandlerUpdate(t *testing.T) {
 		storage     *storage.MemStorage
 	}
 	tests := []struct {
-		name string
-		//arg     storage.MemStorage
+		name    string
 		request string
 		want    want
 	}{
 		{
-			name: "Counter testcount#1",
-			//arg:     *stor,
+			name:    "Counter testcount#1",
 			request: "/update/counter/testcount1/3",
 			want: want{
 				code:        200,
@@ -53,8 +47,7 @@ func TestHandlerUpdate(t *testing.T) {
 			},
 		},
 		{
-			name: "Counter testcount#2",
-			//arg:     *stor,
+			name:    "Counter testcount#2",
 			request: "/update/counter/testcount2/1",
 			want: want{
 				code:        200,
@@ -63,8 +56,7 @@ func TestHandlerUpdate(t *testing.T) {
 			},
 		},
 		{
-			name: "Counter testguage#1",
-			//arg:     *stor,
+			name:    "Counter testguage#1",
 			request: "/update/gauge/testgauge1/1",
 			want: want{
 				code:        200,
@@ -73,8 +65,7 @@ func TestHandlerUpdate(t *testing.T) {
 			},
 		},
 		{
-			name: "Counter testguage#2",
-			//arg:     *stor,
+			name:    "Counter testguage#2",
 			request: "/update/gauge/testgauge1/3",
 			want: want{
 				code:        200,
@@ -83,8 +74,7 @@ func TestHandlerUpdate(t *testing.T) {
 			},
 		},
 		{
-			name: "Counter testguage#3",
-			//arg:     *stor,
+			name:    "Counter testguage#3",
 			request: "/update/gauge/testgauge2/10",
 			want: want{
 				code:        200,
@@ -93,8 +83,7 @@ func TestHandlerUpdate(t *testing.T) {
 			},
 		},
 		{
-			name: "Counter errort#1",
-			//arg:     *stor,
+			name:    "Counter errort#1",
 			request: "/update/counter/testcount1/aaaaa",
 			want: want{
 				code:        400,
@@ -103,8 +92,7 @@ func TestHandlerUpdate(t *testing.T) {
 			},
 		},
 		{
-			name: "Counter errort#2",
-			//arg:     *stor,
+			name:    "Counter errort#2",
 			request: "/update/counter/testcount1/",
 			want: want{
 				code:        404,
@@ -113,8 +101,7 @@ func TestHandlerUpdate(t *testing.T) {
 			},
 		},
 		{
-			name: "Counter errort#3",
-			//arg:     *stor,
+			name:    "Counter errort#3",
 			request: "/update/counter/testcount1/1.12",
 			want: want{
 				code:        400,
@@ -123,8 +110,7 @@ func TestHandlerUpdate(t *testing.T) {
 			},
 		},
 		{
-			name: "Guage errort#1",
-			//arg:     *stor,
+			name:    "Guage errort#1",
 			request: "/update/gauge/testguage1/aaaaa",
 			want: want{
 				code:        400,
@@ -133,8 +119,7 @@ func TestHandlerUpdate(t *testing.T) {
 			},
 		},
 		{
-			name: "Guage errort#2",
-			//arg:     *stor,
+			name:    "Guage errort#2",
 			request: "/update/gauge/testguage1/",
 			want: want{
 				code:        404,
@@ -143,8 +128,7 @@ func TestHandlerUpdate(t *testing.T) {
 			},
 		},
 		{
-			name: "BadRequest status#1",
-			//arg:     *stor,
+			name:    "BadRequest status#1",
 			request: "/update/gauges/testguage1/aaaaa",
 			want: want{
 				code:        400,
@@ -153,8 +137,7 @@ func TestHandlerUpdate(t *testing.T) {
 			},
 		},
 		{
-			name: "Notfound status#1",
-			//arg:     *stor,
+			name:    "Notfound status#1",
 			request: "/update/gauge/testguage1",
 			want: want{
 				code:        404,
@@ -163,8 +146,7 @@ func TestHandlerUpdate(t *testing.T) {
 			},
 		},
 		{
-			name: "Counter errort#4",
-			//arg:     *stor,
+			name:    "Counter errort#4",
 			request: "/update/gauge/alloc/233184",
 			want: want{
 				code:        200,
@@ -180,7 +162,4 @@ func TestHandlerUpdate(t *testing.T) {
 		assert.Equal(t, tt.want.storage.GetGauges(), stor.GetGauges())
 		resp.Body.Close()
 	}
-	// Удаляю тестовый файл
-	er := os.Remove("./TestHandlerUpdate.json")
-	require.NoError(t, er)
 }
