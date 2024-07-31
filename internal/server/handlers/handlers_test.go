@@ -231,7 +231,7 @@ func TestGetMetricJSON(t *testing.T) {
 			return &v
 		}
 
-		nameTestFile := "/home/anton/My_education/Go_Practicum/go-musthave-metrics/TestGetMetricJSON_2.json"
+		nameTestFile := "./TestGetMetricJSON_2.json"
 		saverVar, err := saver.NewWriter(nameTestFile)
 		require.NoError(t, err)
 
