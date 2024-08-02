@@ -47,7 +47,7 @@ func run(stor repositories.ServerRepo, saverVar saver.WriterInterface) error {
 	}
 	// Загружаю на сервер метрики, сохраненные в предыдущих запусках
 	saver.AddMetricsFromFile(stor, reader)
-	go FlashMetricsToFile(stor, saverVar)
+	go FlushMetricsToFile(stor, saverVar)
 
 	logger.ServerLog.Info("Running server", zap.String("address", flagNetAddr))
 	return http.ListenAndServe(flagNetAddr, MetricRouter(stor))
@@ -77,15 +77,15 @@ func MetricRouter(stor repositories.ServerRepo) chi.Router {
 	return r
 }
 
-func FlashMetricsToFile(stor repositories.ServerRepo, saverVar saver.WriterInterface) {
+func FlushMetricsToFile(stor repositories.ServerRepo, saverVar saver.WriterInterface) {
 	logger.ServerLog.Debug("starting flush metrics to file")
 
-	time.Sleep(100 * time.Millisecond)
+	sleepInterval := saver.GetStoreInterval() * time.Second
 	for {
 		err := saverVar.WriteMetrics(stor)
 		if err != nil {
 			logger.ServerLog.Error("flushing metrics error", zap.String("error", error.Error(err)))
 		}
-		time.Sleep(saver.GetStoreInterval() * time.Second)
+		time.Sleep(sleepInterval)
 	}
 }

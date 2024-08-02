@@ -26,8 +26,16 @@ func SetPollInterval(interval time.Duration) {
 	pollInterval = interval
 }
 
+func GetPollInterval() time.Duration {
+	return pollInterval
+}
+
 func SetReportInterval(interval time.Duration) {
 	reportInterval = interval
+}
+
+func GetReportInterval() time.Duration {
+	return reportInterval
 }
 
 // CollectMetrics собирает метрики
@@ -39,9 +47,10 @@ func SyncCollectMetrics(metrics *storage.MetricsStats) {
 
 // CollectMetricsTimer запускает сбор метрик с интервалом
 func CollectMetricsTimer(metrics *storage.MetricsStats) {
+	sleepInterval := GetPollInterval() * time.Second
 	for {
 		SyncCollectMetrics(metrics)
-		time.Sleep(pollInterval * time.Second)
+		time.Sleep(sleepInterval)
 	}
 }
 
@@ -78,6 +87,7 @@ func PushJSON(address, action, typeMetric, nameMetric, valueMetric string, clien
 	enc := json.NewEncoder(&bufEncode)
 	if err := enc.Encode(metrics); err != nil {
 		logger.AgentLog.Error("Encode message error", zap.String("error", error.Error(err)))
+		return err
 	}
 
 	// Сжатие данных для передачи
@@ -162,6 +172,7 @@ func PushMetrics(address, action string, metrics *storage.MetricsStats, client *
 		typeMetric, value, err := metrics.GetMetricString(metricName)
 		if err != nil {
 			logger.AgentLog.Error(fmt.Sprintf("Failed to get metric %s: %v\n", typeMetric, err), zap.String("action", "push metrics"))
+			continue
 		}
 		er := PushJSON(address, action, typeMetric, metricName, value, client)
 		if er != nil {
@@ -172,10 +183,11 @@ func PushMetrics(address, action string, metrics *storage.MetricsStats, client *
 
 // PushMetricsTimer запускает отправку метрик с интервалом
 func PushMetricsTimer(address, action string, metrics *storage.MetricsStats) {
+	sleepInterval := GetReportInterval() * time.Second
 	for {
 		client := resty.New()
 		PushMetrics(address, action, metrics, client)
 		logger.AgentLog.Debug("Running agent", zap.String("action", "push metrics"))
-		time.Sleep(reportInterval * time.Second)
+		time.Sleep(sleepInterval)
 	}
 }

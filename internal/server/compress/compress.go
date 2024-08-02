@@ -2,12 +2,19 @@ package compress
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/logger"
 	"go.uber.org/zap"
 )
+
+var contentTypes = []string{
+	"application/json",
+	"text/html",
+	"",
+}
 
 func GzipMiddleware(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -19,7 +26,7 @@ func GzipMiddleware(h http.HandlerFunc) http.HandlerFunc {
 		acceptEncoding := r.Header.Get("Accept-Encoding")
 		supportsGzip := strings.Contains(acceptEncoding, "gzip")
 		contentType := r.Header.Get("Content-Type")
-		if supportsGzip {
+		if supportsGzip && slices.Contains(contentTypes, contentType) {
 			logger.ServerLog.Debug("client accept encoding, compress answer data", zap.String("Accept-Encoding", acceptEncoding),
 				zap.String("Content-Type", contentType))
 			// оборачиваем оригинальный http.ResponseWriter новым с поддержкой сжатия

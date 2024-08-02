@@ -50,7 +50,6 @@ func GetRestore() bool {
 
 type WriterInterface interface {
 	WriteMetrics(repositories.ServerRepo) error
-	//FlushMetrics() error
 }
 
 type ReadInterface interface {
@@ -59,11 +58,9 @@ type ReadInterface interface {
 
 // SaverWriter --------------------------------------------------------------------------------------------------
 type Writer struct {
-	//sync.Mutex
 	file     *os.File
 	writer   *bufio.Writer
 	filename string
-	//buf    []repositories.Metrics
 }
 
 func NewWriter(filename string) (*Writer, error) {
@@ -73,9 +70,8 @@ func NewWriter(filename string) (*Writer, error) {
 		return nil, err
 	}
 	return &Writer{
-		file:   file,
-		writer: bufio.NewWriter(file),
-		//buf:    make([]repositories.Metrics, 0),
+		file:     file,
+		writer:   bufio.NewWriter(file),
 		filename: filename,
 	}, nil
 }
@@ -136,85 +132,7 @@ func (storage *Writer) WriteMetrics(metrics repositories.ServerRepo) error {
 	return nil
 }
 
-// // Сохраняю метрики в буфер для последующей записи в файл
-// func (storage *Writer) WriteMetrics(metrics repositories.ServerRepo) error {
-// 	file, err := os.OpenFile(storage.filename, os.O_WRONLY|os.O_CREATE, 0666)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	metricsSlice := metrics.GetAllMetricsSlice()
-// 	if len(metricsSlice) == 0 {
-// 		return nil
-// 	}
-
-// 	var metricsJSON bytes.Buffer
-// 	enc := json.NewEncoder(&metricsJSON)
-// 	if err := enc.Encode(metricsSlice); err != nil {
-// 		logger.ServerLog.Error("parse metric to json error", zap.String("error", error.Error(err)))
-// 		return err
-// 	}
-
-// 	n, err := storage.file.Write(metricsJSON.Bytes())
-// 	if err != nil {
-// 		logger.ServerLog.Error("write metrics to file error", zap.String("error", error.Error(err)))
-// 		return err
-// 	}
-// 	if n != len(metricsJSON.Bytes()) {
-// 		logger.ServerLog.Error("write metrics to file error", zap.String("want write byte", strconv.Itoa(len(metricsJSON.Bytes()))),
-// 			zap.String("actual write byte", strconv.Itoa(n)))
-// 		return fmt.Errorf("write metrics to file error: want write %d bytes, actual write %d bytes", len(metricsJSON.Bytes()), n)
-// 	}
-// 	if err := storage.writer.Flush(); err != nil {
-// 		logger.ServerLog.Error("flash buffer to the file error", zap.String("error", error.Error(err)))
-// 		return err
-// 	}
-
-// 	logger.ServerLog.Info("write metrcis to file")
-// 	return nil
-// }
-
-// // Записываю накопленные метрики в файл и обнуляю буфер
-// func (storage *Writer) FlushMetrics() error {
-// 	storage.Mutex.Lock()
-// 	defer storage.Mutex.Unlock()
-
-// 	if len(storage.buf) == 0 {
-// 		return nil
-// 	}
-
-// 	var metricsJSON bytes.Buffer
-// 	enc := json.NewEncoder(&metricsJSON)
-// 	if err := enc.Encode(storage.buf); err != nil {
-// 		logger.ServerLog.Error("parse metric to json error", zap.String("error", error.Error(err)))
-// 		return err
-// 	}
-
-// 	n, err := storage.file.Write(metricsJSON.Bytes())
-// 	if err != nil {
-// 		logger.ServerLog.Error("write metrics to file error", zap.String("error", error.Error(err)))
-// 		return err
-// 	}
-// 	if n != len(metricsJSON.Bytes()) {
-// 		logger.ServerLog.Error("write metrics to file error", zap.String("want write byte", strconv.Itoa(len(metricsJSON.Bytes()))),
-// 			zap.String("actual write byte", strconv.Itoa(n)))
-// 		return fmt.Errorf("write metrics to file error: want write %d bytes, actual write %d bytes", len(metricsJSON.Bytes()), n)
-// 	}
-// 	if err := storage.writer.Flush(); err != nil {
-// 		logger.ServerLog.Error("flash buffer to the file error", zap.String("error", error.Error(err)))
-// 		return err
-// 	}
-
-// 	// Обнуляю накопленные метрики, которые уже сохранены в файл
-// 	storage.buf = make([]repositories.Metrics, 0)
-
-// 	logger.ServerLog.Info("flush metrcis to file")
-// 	return nil
-// }
-
-// end SaverWriter --------------------------------------------------------------------------------------------------
-
-// SaverReader --------------------------------------------------------------------------------------------------
+// Reader --------------------------------------------------------------------------------------------------
 type Reader struct {
 	file   *os.File
 	reader *bufio.Reader
@@ -265,7 +183,6 @@ func AddMetricsFromFile(stor repositories.ServerRepo, reader ReadInterface) {
 		metrics, err := reader.ReadMetrics()
 		if err != nil {
 			log.Fatalf("read metrics from file error, file: %s. Error is: %s\n", GetFilestoragePath(), error.Error(err))
-			//return
 		}
 		if err := stor.AddMetricsFromSlice(metrics); err != nil {
 			log.Fatalf("add metrics from file: %s into server error. Error is: %s\n", GetFilestoragePath(), error.Error(err))

@@ -6,18 +6,6 @@ import (
 	"fmt"
 )
 
-var ContentTypes []string
-
-func init() {
-	ContentTypes = []string{
-		"application/javascript",
-		"application/json",
-		"text/css",
-		"text/html",
-		"text/plain",
-		"text/xml"}
-}
-
 // Compress сжимает слайс байт.
 func Compress(data []byte) ([]byte, error) {
 	var b bytes.Buffer
