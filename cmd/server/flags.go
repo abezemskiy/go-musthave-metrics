@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -16,6 +17,7 @@ var (
 	flagStoreInterval   int
 	flagFileStoragePath string
 	flagRestore         bool
+	flagDatabaseDsn    string
 )
 
 func parseFlags() {
@@ -24,6 +26,9 @@ func parseFlags() {
 	flagStoreIntervalTemp := flag.Int("i", 300, "interval of saving metrics to the file")
 	flag.StringVar(&flagFileStoragePath, "f", "./metrics.json", "path address to saving metrics file")
 	flagRestoreTemp := flag.Bool("r", true, "for define needed of loading metrics from file while server starting")
+	ps := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable",
+		`localhost`, `default`, `XXXXXXXX`, `default`)
+	flag.StringVar(&flagDatabaseDsn, "d", ps, "database connection address")
 
 	flag.Parse()
 	flagStoreInterval = *flagStoreIntervalTemp
@@ -54,6 +59,9 @@ func parseFlags() {
 			log.Fatalf("Parse RESTORE global variable error: %v\n", err)
 		}
 		flagRestore = r
+	}
+	if envDatabaseDsn := os.Getenv("DATABASE_DSN"); envDatabaseDsn != "" {
+		flagDatabaseDsn = envDatabaseDsn
 	}
 
 	saver.SetStoreInterval(time.Duration(flagStoreInterval))

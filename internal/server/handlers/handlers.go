@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"html/template"
 	"io"
@@ -15,7 +17,7 @@ import (
 )
 
 var (
-	tmpl *template.Template
+	tmpl         *template.Template
 )
 
 func init() {
@@ -48,6 +50,15 @@ func GetGlobal(res http.ResponseWriter, req *http.Request, storage repositories.
 		res.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+}
+
+func PingDatabase(ctx context.Context, res http.ResponseWriter, req *http.Request, db *sql.DB) {
+	if err := db.PingContext(ctx); err != nil {
+        logger.ServerLog.Error("fail to ping database", zap.String("error", error.Error(err)))
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+    }
+	res.WriteHeader(http.StatusOK)
 }
 
 func GetMetricJSON(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
@@ -231,6 +242,13 @@ func UpdateMetrics(res http.ResponseWriter, req *http.Request, storage repositor
 func GetGlobalHandler(stor repositories.ServerRepo) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		GetGlobal(res, req, stor)
+	}
+	return fn
+}
+
+func PingDatabaseHandler(ctx context.Context,db *sql.DB) http.HandlerFunc {
+	fn := func(res http.ResponseWriter, req *http.Request) {
+		PingDatabase(ctx, res, req, db)
 	}
 	return fn
 }

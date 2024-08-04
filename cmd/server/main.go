@@ -1,9 +1,13 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"log"
 	"net/http"
 	"time"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
@@ -19,6 +23,16 @@ import (
 func main() {
 	parseFlags()
 
+	// Подключение к базе данных
+	db, err := sql.Open("pgx", flagDatabaseDsn)
+	if err != nil {
+		log.Fatalf("Error connection to database: %v by address %s", err, flagDatabaseDsn)
+	}
+	defer db.Close()
+
+	// Создаю родительский контекст
+	ctx := context.Background()
+
 	stor := storage.NewDefaultMemStorage()
 
 	saver, err := saver.NewWriter(saver.GetFilestoragePath())
@@ -26,7 +40,7 @@ func main() {
 		log.Fatalf("Error create writer for saving metrics : %v\n", err)
 	}
 
-	if err := run(stor, saver); err != nil {
+	if err := run(ctx, stor, saver, db); err != nil {
 		log.Fatalf("Error starting server: %v\n", err)
 	}
 	// При штатном завершении работы сервера накопленные данные сохраняются
@@ -37,7 +51,7 @@ func main() {
 }
 
 // функция run будет полезна при инициализации зависимостей сервера перед запуском
-func run(stor repositories.ServerRepo, saverVar saver.WriterInterface) error {
+func run(ctx context.Context, stor repositories.ServerRepo, saverVar saver.WriterInterface, db *sql.DB) error {
 	if err := logger.Initialize(flagLogLevel); err != nil {
 		return err
 	}
@@ -50,15 +64,16 @@ func run(stor repositories.ServerRepo, saverVar saver.WriterInterface) error {
 	go FlushMetricsToFile(stor, saverVar)
 
 	logger.ServerLog.Info("Running server", zap.String("address", flagNetAddr))
-	return http.ListenAndServe(flagNetAddr, MetricRouter(stor))
+	return http.ListenAndServe(flagNetAddr, MetricRouter(ctx, stor, db))
 }
 
-func MetricRouter(stor repositories.ServerRepo) chi.Router {
+func MetricRouter(ctx context.Context, stor repositories.ServerRepo, db *sql.DB) chi.Router {
 
 	r := chi.NewRouter()
 
 	r.Route("/", func(r chi.Router) {
 		r.Get("/", logger.RequestLogger(compress.GzipMiddleware(handlers.GetGlobalHandler(stor))))
+		r.Get("/ping", logger.RequestLogger(compress.GzipMiddleware(handlers.PingDatabaseHandler(ctx, db))))
 
 		r.Route("/update", func(r chi.Router) {
 			r.Post("/", logger.RequestLogger(compress.GzipMiddleware(handlers.UpdateMetricsJSONHandler(stor))))
