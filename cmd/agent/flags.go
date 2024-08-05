@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agenthandlers"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/handlers"
 )
 
 var flagNetAddr string
@@ -15,6 +15,7 @@ var flagNetAddr string
 var (
 	reportInterval *int
 	pollInterval   *int
+	flagLogLevel   string
 )
 
 func parseFlags() {
@@ -22,11 +23,12 @@ func parseFlags() {
 
 	reportInterval = flag.Int("r", 10, "report interval")
 	pollInterval = flag.Int("p", 2, "poll interval")
+	flag.StringVar(&flagLogLevel, "l", "info", "log level")
 
 	flag.Parse()
 
 	// для случаев, когда в переменной окружения ADDRESS присутствует непустое значение,
-	// переопределим адрес сервера,
+	// переопределим адрес агента,
 	// даже если он был передан через аргумент командной строки
 	if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
 		flagNetAddr = envRunAddr
@@ -45,7 +47,10 @@ func parseFlags() {
 		}
 		*pollInterval = val
 	}
+	if envLogLevel := os.Getenv("AGENT_LOG_LEVEL"); envLogLevel != "" {
+		flagLogLevel = envLogLevel
+	}
 
-	agenthandlers.SetReportInterval(time.Duration(*reportInterval))
-	agenthandlers.SetPollInterval(time.Duration(*pollInterval))
+	handlers.SetReportInterval(time.Duration(*reportInterval))
+	handlers.SetPollInterval(time.Duration(*pollInterval))
 }

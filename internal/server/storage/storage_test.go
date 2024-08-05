@@ -1,4 +1,4 @@
-package repositories
+package storage
 
 import (
 	"fmt"
@@ -24,8 +24,11 @@ func TestNewDefaultMemStorage(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewDefaultMemStorage(); !reflect.DeepEqual(*got, *tt.want) {
-				t.Errorf("NewDefaultMemStorage() = %v, want %v", *got, *tt.want)
+			if got := NewDefaultMemStorage(); !reflect.DeepEqual(got.counters, tt.want.counters) {
+				t.Errorf("NewDefaultMemStorage() = %v, want %v", got.counters, tt.want.counters)
+			}
+			if got := NewDefaultMemStorage(); !reflect.DeepEqual(got.gauges, tt.want.gauges) {
+				t.Errorf("NewDefaultMemStorage() = %v, want %v", got.gauges, tt.want.gauges)
 			}
 		})
 	}
@@ -34,8 +37,8 @@ func TestNewDefaultMemStorage(t *testing.T) {
 func TestNewMemStorage(t *testing.T) {
 
 	type args struct {
-		gauges_   map[string]float64
-		counters_ map[string]int64
+		gaugesArg   map[string]float64
+		countersArg map[string]int64
 	}
 	tests := []struct {
 		name string
@@ -45,8 +48,8 @@ func TestNewMemStorage(t *testing.T) {
 		{
 			name: "Args function is nil",
 			args: args{
-				gauges_:   nil,
-				counters_: nil,
+				gaugesArg:   nil,
+				countersArg: nil,
 			},
 			want: &MemStorage{
 				gauges:   map[string]float64{},
@@ -56,8 +59,8 @@ func TestNewMemStorage(t *testing.T) {
 		{
 			name: "Args not nil #1",
 			args: args{
-				gauges_:   map[string]float64{"gauge1": 1.14},
-				counters_: map[string]int64{"counter1": 5},
+				gaugesArg:   map[string]float64{"gauge1": 1.14},
+				countersArg: map[string]int64{"counter1": 5},
 			},
 			want: &MemStorage{
 				gauges:   map[string]float64{"gauge1": 1.14},
@@ -67,8 +70,8 @@ func TestNewMemStorage(t *testing.T) {
 		{
 			name: "Left arg is nil #2",
 			args: args{
-				gauges_:   nil,
-				counters_: map[string]int64{"counter1": 5},
+				gaugesArg:   nil,
+				countersArg: map[string]int64{"counter1": 5},
 			},
 			want: &MemStorage{
 				gauges:   map[string]float64{},
@@ -78,8 +81,8 @@ func TestNewMemStorage(t *testing.T) {
 		{
 			name: "Right args is nil #3",
 			args: args{
-				gauges_:   map[string]float64{"gauge1": 1.14},
-				counters_: nil,
+				gaugesArg:   map[string]float64{"gauge1": 1.14},
+				countersArg: nil,
 			},
 			want: &MemStorage{
 				gauges:   map[string]float64{"gauge1": 1.14},
@@ -89,8 +92,11 @@ func TestNewMemStorage(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewMemStorage(tt.args.gauges_, tt.args.counters_); !reflect.DeepEqual(*got, *tt.want) {
-				t.Errorf("NewMemStorage() = %v, want %v", *got, *tt.want)
+			if got := NewMemStorage(tt.args.gaugesArg, tt.args.countersArg); !reflect.DeepEqual(got.counters, tt.want.counters) {
+				t.Errorf("NewMemStorage() = %v, want %v", got.counters, tt.want.counters)
+			}
+			if got := NewMemStorage(tt.args.gaugesArg, tt.args.countersArg); !reflect.DeepEqual(got.gauges, tt.want.gauges) {
+				t.Errorf("NewMemStorage() = %v, want %v", got.gauges, tt.want.gauges)
 			}
 		})
 	}
@@ -126,8 +132,11 @@ func TestMemStorageAddGauge(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.args.stor.AddGauge(tt.args.name, tt.args.value)
-			if !reflect.DeepEqual(*tt.args.stor, *tt.want) {
-				t.Errorf("NewDefaultMemStorage() = %v, want %v", *tt.args.stor, *tt.want)
+			if !reflect.DeepEqual(tt.args.stor.counters, tt.want.counters) {
+				t.Errorf("NewDefaultMemStorage() = %v, want %v", tt.args.stor.counters, tt.want.counters)
+			}
+			if !reflect.DeepEqual(tt.args.stor.gauges, tt.want.gauges) {
+				t.Errorf("NewDefaultMemStorage() = %v, want %v", tt.args.stor.gauges, tt.want.gauges)
 			}
 		})
 	}
@@ -163,8 +172,11 @@ func TestMemStorageAddCounter(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.args.stor.AddCounter(tt.args.name, tt.args.value)
-			if !reflect.DeepEqual(*tt.args.stor, *tt.want) {
-				t.Errorf("NewDefaultMemStorage() = %v, want %v", *tt.args.stor, *tt.want)
+			if !reflect.DeepEqual(tt.args.stor.counters, tt.want.counters) {
+				t.Errorf("NewDefaultMemStorage() = %v, want %v", tt.args.stor.counters, tt.want.counters)
+			}
+			if !reflect.DeepEqual(tt.args.stor.gauges, tt.want.gauges) {
+				t.Errorf("NewDefaultMemStorage() = %v, want %v", tt.args.stor.gauges, tt.want.gauges)
 			}
 		})
 	}
@@ -283,7 +295,7 @@ func TestMemStorageGetAllMetrics(t *testing.T) {
 				gauges:   map[string]float64{"gauge1": 17.77},
 				counters: map[string]int64{},
 			},
-			want: "gauge1 17.77\n",
+			want: "gauge1: 17.77\n",
 		},
 	}
 	for _, tt := range tests {
