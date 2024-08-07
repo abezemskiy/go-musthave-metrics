@@ -43,7 +43,12 @@ func OtherRequest(res http.ResponseWriter, req *http.Request) {
 func GetGlobal(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
 	res.Header().Set("Content-Type", "text/html")
 	res.WriteHeader(http.StatusOK)
-	metrics := storage.GetAllMetrics()
+	metrics, err := storage.GetAllMetrics(req.Context())
+	if err != nil{
+		logger.ServerLog.Error("get all metrics error in GetGlobal handler", zap.String("error", error.Error(err)))
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	if err := tmpl.Execute(res, metrics); err != nil {
 		logger.ServerLog.Error("template execute error in GetGlobal handler", zap.String("error", error.Error(err)))
@@ -78,7 +83,7 @@ func GetMetricJSON(res http.ResponseWriter, req *http.Request, storage repositor
 	metricType := metrics.MType
 	metricName := metrics.ID
 
-	value, err := storage.GetMetric(metricType, metricName)
+	value, err := storage.GetMetric(req.Context(), metricType, metricName)
 	if err != nil {
 		res.WriteHeader(http.StatusNotFound)
 		return
@@ -120,7 +125,7 @@ func GetMetric(res http.ResponseWriter, req *http.Request, storage repositories.
 	metricType := chi.URLParam(req, "metricType")
 	metricName := chi.URLParam(req, "metricName")
 
-	value, err := storage.GetMetric(metricType, metricName)
+	value, err := storage.GetMetric(req.Context(), metricType, metricName)
 	if err != nil {
 		res.WriteHeader(http.StatusNotFound)
 		return
@@ -164,14 +169,24 @@ func UpdateMetricsJSON(res http.ResponseWriter, req *http.Request, storage repos
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		storage.AddGauge(metrics.ID, *metrics.Value)
+		err := storage.AddGauge(req.Context(), metrics.ID, *metrics.Value)
+		if err != nil{
+			logger.ServerLog.Error("add gauge error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
+			res.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 	case "counter":
 		if metrics.Delta == nil {
 			logger.ServerLog.Error("Decode message error, delta in counter metric is nil", zap.String("address", req.URL.String()))
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		storage.AddCounter(metrics.ID, *metrics.Delta)
+		err := storage.AddCounter(req.Context(), metrics.ID, *metrics.Delta)
+		if err != nil{
+			logger.ServerLog.Error("add counter error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
+			res.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 	default:
 		logger.ServerLog.Error("Invalid type of metric", zap.String("type", metrics.MType)) //---------------------------------------------
 		res.WriteHeader(http.StatusBadRequest)
@@ -223,14 +238,24 @@ func UpdateMetrics(res http.ResponseWriter, req *http.Request, storage repositor
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		storage.AddGauge(metricName, value)
+		err = storage.AddGauge(req.Context(), metricName, value)
+		if err != nil{
+			logger.ServerLog.Error("add gauge error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
+			res.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 	case "counter":
 		value, err := strconv.ParseInt(metricValue, 10, 64)
 		if err != nil {
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		storage.AddCounter(metricName, value)
+		err = storage.AddCounter(req.Context(), metricName, value)
+		if err != nil{
+			logger.ServerLog.Error("add counter error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
+			res.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 	default:
 		res.WriteHeader(http.StatusBadRequest)
 		return

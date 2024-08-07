@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPush(t *testing.T) {
@@ -92,8 +94,19 @@ func TestPush(t *testing.T) {
 			if err := Push(ts.URL, tt.args.action, tt.args.typeMetric, tt.args.nameMetric, tt.args.valueMetric, tt.args.client); (err != nil) != tt.wantErr {
 				t.Errorf("PushJSON() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			assert.Equal(t, tt.wantStor.GetCounters(), stor.GetCounters())
-			assert.Equal(t, tt.wantStor.GetGauges(), stor.GetGauges())
+			//assert.Equal(t, tt.wantStor.GetCounters(), stor.GetCounters())
+			//assert.Equal(t, tt.wantStor.GetGauges(), stor.GetGauges())
+			wantAll, err := tt.wantStor.GetAllMetrics(context.Background())
+			require.NoError(t, err)
+			getAll, errGet := stor.GetAllMetrics(context.Background())
+			require.NoError(t, errGet)
+			assert.Equal(t, wantAll, getAll)
+
+			wantAllSlice, errWantSlice := tt.wantStor.GetAllMetricsSlice(context.Background())
+			require.NoError(t, errWantSlice)
+			getAllSlice, errGetSlice := stor.GetAllMetricsSlice(context.Background())
+			require.NoError(t, errGetSlice)
+			assert.Equal(t, wantAllSlice, getAllSlice)
 		})
 	}
 }
@@ -175,8 +188,19 @@ func TestPushJSON(t *testing.T) {
 			if err := PushJSON(ts.URL, tt.args.action, tt.args.typeMetric, tt.args.nameMetric, tt.args.valueMetric, tt.args.client); (err != nil) != tt.wantErr {
 				t.Errorf("PushJSON() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			assert.Equal(t, tt.wantStor.GetCounters(), stor.GetCounters())
-			assert.Equal(t, tt.wantStor.GetGauges(), stor.GetGauges())
+			//assert.Equal(t, tt.wantStor.GetCounters(), stor.GetCounters())
+			//assert.Equal(t, tt.wantStor.GetGauges(), stor.GetGauges())
+			wantAll, err := tt.wantStor.GetAllMetrics(context.Background())
+			require.NoError(t, err)
+			getAll, errGet := stor.GetAllMetrics(context.Background())
+			require.NoError(t, errGet)
+			assert.Equal(t, wantAll, getAll)
+
+			wantAllSlice, errWantSlice := tt.wantStor.GetAllMetricsSlice(context.Background())
+			require.NoError(t, errWantSlice)
+			getAllSlice, errGetSlice := stor.GetAllMetricsSlice(context.Background())
+			require.NoError(t, errGetSlice)
+			assert.Equal(t, wantAllSlice, getAllSlice)
 		})
 	}
 }

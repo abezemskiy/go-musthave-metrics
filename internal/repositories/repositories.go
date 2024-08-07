@@ -1,21 +1,24 @@
 package repositories
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 type (
 	Repositories interface {
-		GetMetric(string, string) (string, error)
+		GetMetric(context.Context, string, string) (string, error)
 	}
 
 	ServerRepo interface {
 		Repositories
-		AddGauge(string, float64)
-		AddCounter(string, int64)
-		GetAllMetrics() string
-		AddMetricsFromSlice([]Metrics) error
-		GetCounters() map[string]int64
-		GetGauges() map[string]float64
-		GetAllMetricsSlice() []Metrics
+		AddGauge(context.Context, string, float64) error
+		AddCounter(context.Context, string, int64) error
+		GetAllMetrics(context.Context) (string, error)
+		AddMetricsFromSlice(context.Context, []Metrics) error
+		//GetCounters() map[string]int64
+		// GetGauges() map[string]float64
+		GetAllMetricsSlice(context.Context) ([]Metrics, error)
 	}
 
 	// Структура для работы с метриками json формата

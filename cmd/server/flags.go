@@ -23,9 +23,11 @@ var (
 func parseFlags() {
 	flag.StringVar(&flagNetAddr, "a", ":8080", "address and port to run server")
 	flag.StringVar(&flagLogLevel, "l", "info", "log level")
+	// настройка флагов для хранения метрик в файле
 	flagStoreIntervalTemp := flag.Int("i", 300, "interval of saving metrics to the file")
 	flag.StringVar(&flagFileStoragePath, "f", "./metrics.json", "path address to saving metrics file")
 	flagRestoreTemp := flag.Bool("r", true, "for define needed of loading metrics from file while server starting")
+	// настройка флагов для хранения метрик в базе данных
 	ps := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable",
 		`localhost`, `default`, `XXXXXXXX`, `default`)
 	flag.StringVar(&flagDatabaseDsn, "d", ps, "database connection address")

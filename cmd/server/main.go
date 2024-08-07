@@ -35,6 +35,7 @@ func main() {
 
 	stor := storage.NewDefaultMemStorage()
 
+	// Для загрузки метрик из файла на сервер
 	saver, err := saver.NewWriter(saver.GetFilestoragePath())
 	if err != nil {
 		log.Fatalf("Error create writer for saving metrics : %v\n", err)

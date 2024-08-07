@@ -1,8 +1,10 @@
+// Пакет для сохранения метрик в файл
 package saver
 
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -85,7 +87,10 @@ func (storage *Writer) Close() error {
 
 // Сохраняю метрики из сервера в файл, причем предыдущее содержимое файла удаляю
 func (storage *Writer) WriteMetrics(metrics repositories.ServerRepo) error {
-	metricsSlice := metrics.GetAllMetricsSlice()
+	metricsSlice, err := metrics.GetAllMetricsSlice(context.Background())
+	if err != nil {
+		return err
+	}
 	if len(metricsSlice) == 0 {
 		return nil
 	}
@@ -151,6 +156,7 @@ func NewReader(filename string) (*Reader, error) {
 	}, nil
 }
 
+// Метод для чтения метрик из файла и записи их в слайс
 func (saver *Reader) ReadMetrics() ([]repositories.Metrics, error) {
 	var bufRead bytes.Buffer
 
@@ -178,13 +184,14 @@ func (saver *Reader) ReadMetrics() ([]repositories.Metrics, error) {
 	return metrics, nil
 }
 
+// Функция для загрузки метрик из файла в сервер
 func AddMetricsFromFile(stor repositories.ServerRepo, reader ReadInterface) {
 	if GetRestore() {
 		metrics, err := reader.ReadMetrics()
 		if err != nil {
 			log.Fatalf("read metrics from file error, file: %s. Error is: %s\n", GetFilestoragePath(), error.Error(err))
 		}
-		if err := stor.AddMetricsFromSlice(metrics); err != nil {
+		if err := stor.AddMetricsFromSlice(context.Background(), metrics); err != nil {
 			log.Fatalf("add metrics from file: %s into server error. Error is: %s\n", GetFilestoragePath(), error.Error(err))
 		}
 	}

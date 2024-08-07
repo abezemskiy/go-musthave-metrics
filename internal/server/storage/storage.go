@@ -1,6 +1,8 @@
+// реализация интерфейса хранилища метрик
 package storage
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -35,19 +37,21 @@ func NewMemStorage(gaugesArg map[string]float64, countersArg map[string]int64) *
 	}
 }
 
-func (storage *MemStorage) AddGauge(name string, guage float64) {
+func (storage *MemStorage) AddGauge(ctx context.Context, name string, guage float64) error {
 	storage.Mutex.Lock()
 	defer storage.Mutex.Unlock()
 	storage.gauges[name] = guage
+	return nil
 }
 
-func (storage *MemStorage) AddCounter(name string, counter int64) {
+func (storage *MemStorage) AddCounter(ctx context.Context, name string, counter int64) error {
 	storage.Mutex.Lock()
 	defer storage.Mutex.Unlock()
 	storage.counters[name] += counter
+	return nil
 }
 
-func (storage *MemStorage) GetMetric(metricType, name string) (string, error) {
+func (storage *MemStorage) GetMetric(ctx context.Context, metricType, name string) (string, error) {
 	storage.Mutex.Lock()
 	defer storage.Mutex.Unlock()
 
@@ -69,7 +73,7 @@ func (storage *MemStorage) GetMetric(metricType, name string) (string, error) {
 	return "", fmt.Errorf("whrong type of metric")
 }
 
-func (storage *MemStorage) GetAllMetrics() string {
+func (storage *MemStorage) GetAllMetrics(ctx context.Context) (string, error) {
 	storage.Mutex.Lock()
 	defer storage.Mutex.Unlock()
 
@@ -81,10 +85,10 @@ func (storage *MemStorage) GetAllMetrics() string {
 	for name, val := range storage.counters {
 		result += fmt.Sprintf("%s: %d\n", name, val)
 	}
-	return result
+	return result, nil
 }
 
-func (storage *MemStorage) GetAllMetricsSlice() []repositories.Metrics {
+func (storage *MemStorage) GetAllMetricsSlice(ctx context.Context) ([]repositories.Metrics, error) {
 	storage.Mutex.Lock()
 	defer storage.Mutex.Unlock()
 
@@ -105,10 +109,10 @@ func (storage *MemStorage) GetAllMetricsSlice() []repositories.Metrics {
 		}
 		result = append(result, metric)
 	}
-	return result
+	return result, nil
 }
 
-func (storage *MemStorage) AddMetricsFromSlice(metrics []repositories.Metrics) error {
+func (storage *MemStorage) AddMetricsFromSlice(ctx context.Context, metrics []repositories.Metrics) error {
 	if metrics == nil {
 		return nil
 	}
@@ -118,12 +122,12 @@ func (storage *MemStorage) AddMetricsFromSlice(metrics []repositories.Metrics) e
 			if metric.Value == nil {
 				return fmt.Errorf("invalid metric, value of gauge metric is nil")
 			}
-			storage.AddGauge(metric.ID, *metric.Value)
+			storage.AddGauge(ctx, metric.ID, *metric.Value)
 		} else if metric.MType == "counter" {
 			if metric.Delta == nil {
 				return fmt.Errorf("invalid metric, delta of counter metric is nil")
 			}
-			storage.AddCounter(metric.ID, *metric.Delta)
+			storage.AddCounter(ctx, metric.ID, *metric.Delta)
 		} else {
 			return fmt.Errorf("invalid metric, undefined type of metric: %s", metric.MType)
 		}
@@ -131,15 +135,15 @@ func (storage *MemStorage) AddMetricsFromSlice(metrics []repositories.Metrics) e
 	return nil
 }
 
-func (storage *MemStorage) GetCounters() map[string]int64 {
-	storage.Mutex.Lock()
-	defer storage.Mutex.Unlock()
-	return storage.counters
-}
-func (storage *MemStorage) GetGauges() map[string]float64 {
-	storage.Mutex.Lock()
-	defer storage.Mutex.Unlock()
-	return storage.gauges
-}
+// func (storage *MemStorage) GetCounters() map[string]int64 {
+// 	storage.Mutex.Lock()
+// 	defer storage.Mutex.Unlock()
+// 	return storage.counters
+// }
+// func (storage *MemStorage) GetGauges() map[string]float64 {
+// 	storage.Mutex.Lock()
+// 	defer storage.Mutex.Unlock()
+// 	return storage.gauges
+// }
 
 // Хранилище метрик -----------------------------------------------------------------------------------------

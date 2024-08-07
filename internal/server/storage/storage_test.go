@@ -1,11 +1,13 @@
 package storage
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewDefaultMemStorage(t *testing.T) {
@@ -131,7 +133,8 @@ func TestMemStorageAddGauge(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.args.stor.AddGauge(tt.args.name, tt.args.value)
+			err := tt.args.stor.AddGauge(context.Background(), tt.args.name, tt.args.value)
+			require.NoError(t, err)
 			if !reflect.DeepEqual(tt.args.stor.counters, tt.want.counters) {
 				t.Errorf("NewDefaultMemStorage() = %v, want %v", tt.args.stor.counters, tt.want.counters)
 			}
@@ -171,7 +174,8 @@ func TestMemStorageAddCounter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.args.stor.AddCounter(tt.args.name, tt.args.value)
+			err := tt.args.stor.AddCounter(context.Background(), tt.args.name, tt.args.value)
+			require.NoError(t, err)
 			if !reflect.DeepEqual(tt.args.stor.counters, tt.want.counters) {
 				t.Errorf("NewDefaultMemStorage() = %v, want %v", tt.args.stor.counters, tt.want.counters)
 			}
@@ -270,7 +274,7 @@ func TestMemStorageGetMetric(t *testing.T) {
 				gauges:   tt.fields.gauges,
 				counters: tt.fields.counters,
 			}
-			got, err := storage.GetMetric(tt.args.metricType, tt.args.name)
+			got, err := storage.GetMetric(context.Background(), tt.args.metricType, tt.args.name)
 			if !tt.wantErr {
 				assert.NoError(t, err)
 			}
@@ -304,7 +308,9 @@ func TestMemStorageGetAllMetrics(t *testing.T) {
 				gauges:   tt.fields.gauges,
 				counters: tt.fields.counters,
 			}
-			assert.Equal(t, tt.want, storage.GetAllMetrics())
+			res, err := storage.GetAllMetrics(context.Background())
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, res)
 		})
 	}
 }

@@ -5,6 +5,7 @@ go 1.22.1
 require (
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/go-resty/resty/v2 v2.13.1
+	github.com/go-test/deep v1.1.1
 	github.com/jackc/pgx/v5 v5.6.0
 	github.com/stretchr/testify v1.9.0
 	go.uber.org/zap v1.27.0
