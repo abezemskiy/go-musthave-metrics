@@ -54,38 +54,49 @@ func CollectMetricsTimer(metrics *storage.MetricsStats) {
 	}
 }
 
-// Push отправляет метрику на сервер в JSON формате и возвращает ошибку при неудаче
-func PushJSON(address, action, typeMetric, nameMetric, valueMetric string, client *resty.Client) error {
+func BuildMetric(typeMetric, nameMetric, valueMetric string) (metric repositories.Metric, err error) {
 	// Строю структуру метрики для сериализации из принятых параметров
-	var metrics repositories.Metrics
-	metrics.ID = nameMetric
-	metrics.MType = typeMetric
+	metric.ID = nameMetric
+	metric.MType = typeMetric
 
 	switch typeMetric {
 	case "counter":
-		val, err := strconv.ParseInt(valueMetric, 10, 64)
-		if err != nil {
+		val, errParse := strconv.ParseInt(valueMetric, 10, 64)
+		if errParse != nil {
 			logger.AgentLog.Error("Convert string to int64 error: ", zap.String("error: ", error.Error(err)))
-			return err
+			err = errParse
+			return
 		}
-		metrics.Delta = &val
+		metric.Delta = &val
 	case "gauge":
-		val, err := strconv.ParseFloat(valueMetric, 64)
-		if err != nil {
+		val, errParse := strconv.ParseFloat(valueMetric, 64)
+		if errParse != nil {
 			logger.AgentLog.Error("Convert string to float64 error: ", zap.String("error: ", error.Error(err)))
-			return err
+			err = errParse
+			return
 		}
-		metrics.Value = &val
+		metric.Value = &val
 	default:
-		logger.AgentLog.Error("Invalid type of metric", zap.String("type: ", metrics.MType)) //---------------------------------------------
-		return fmt.Errorf("get invalid type of metric: %s", typeMetric)
+		logger.AgentLog.Error("Invalid type of metric", zap.String("type: ", metric.MType)) //---------------------------------------------
+		err = fmt.Errorf("get invalid type of metric: %s", typeMetric)
+		return
 	}
-	logger.AgentLog.Debug(fmt.Sprintf("Success build metric structure for JSON: name: %s, type: %s, delta: %d, value: %d", metrics.ID, metrics.MType, metrics.Delta, metrics.Value))
+	logger.AgentLog.Debug(fmt.Sprintf("Success build metric structure for JSON: name: %s, type: %s, delta: %d, value: %d", metric.ID, metric.MType, metric.Delta, metric.Value))
+	return
+}
+
+// Push отправляет метрику на сервер в JSON формате и возвращает ошибку при неудаче
+func PushJSON(address, action, typeMetric, nameMetric, valueMetric string, client *resty.Client) error {
+	metric, err := BuildMetric(typeMetric, nameMetric, valueMetric)
+	if err != nil {
+		logger.AgentLog.Error("Build metric error", zap.String("error", error.Error(err)))
+		return err
+	}
 
 	// сериализую полученную струтктуру с метриками в json-представление  в виде слайса байт
 	var bufEncode bytes.Buffer
 	enc := json.NewEncoder(&bufEncode)
-	if err := enc.Encode(metrics); err != nil {
+	if err := enc.Encode(metric); err != nil {
 		logger.AgentLog.Error("Encode message error", zap.String("error", error.Error(err)))
 		return err
 	}
@@ -133,7 +144,7 @@ func PushJSON(address, action, typeMetric, nameMetric, valueMetric string, clien
 	}
 
 	// Десериализую данные полученные от сервера, в основном для дебага
-	var resJSON repositories.Metrics
+	var resJSON repositories.Metric
 	buRes := bytes.NewBuffer(responceMetric)
 	dec := json.NewDecoder(buRes)
 	if err := dec.Decode(&resJSON); err != nil {
@@ -181,12 +192,105 @@ func PushMetrics(address, action string, metrics *storage.MetricsStats, client *
 	}
 }
 
+// Push отправляет метрику на сервер в JSON формате и возвращает ошибку при неудаче
+func PushBatch(address, action string, metricsSlice []repositories.Metric, client *resty.Client) error {
+
+	// сериализую полученную слайс с метриками в json-представление  в виде слайса байт
+	var bufEncode bytes.Buffer
+	enc := json.NewEncoder(&bufEncode)
+	if err := enc.Encode(metricsSlice); err != nil {
+		logger.AgentLog.Error("Encode message error", zap.String("error", error.Error(err)))
+		return err
+	}
+
+	// Сжатие данных для передачи
+	compressBody, err := compress.Compress(bufEncode.Bytes())
+	if err != nil {
+		logger.AgentLog.Error("Fail to comperess push data ", zap.String("error", error.Error(err)))
+		return err
+	}
+
+	url := fmt.Sprintf("%s/%s", address, action)
+	resp, err := client.R().
+		SetHeader("Content-Type", "application/json").
+		SetHeader("Content-Encoding", "gzip").
+		SetHeader("Accept-Encoding", "gzip").
+		SetBody(compressBody).
+		Post(url)
+
+	if err != nil {
+		logger.AgentLog.Error("Push batch json metrics to server error ", zap.String("error", error.Error(err)))
+		return err
+	}
+
+	logger.AgentLog.Debug("Get answer from server", zap.String("Content-Encoding", resp.Header().Get("Content-Encoding")),
+		zap.String("statusCode", fmt.Sprintf("%d", resp.StatusCode())),
+		zap.String("Content-Type", resp.Header().Get("Content-Type")),
+		zap.String("Content-Encoding", fmt.Sprint(resp.Header().Values("Content-Encoding"))))
+
+	if resp.StatusCode() != http.StatusOK {
+		logger.AgentLog.Error("Geting status is not 200 ", zap.String("statusCode", fmt.Sprintf("%d", resp.StatusCode())))
+		return fmt.Errorf("status code is: %d", resp.StatusCode())
+	}
+
+	contentEncoding := resp.Header().Get("Content-Encoding")
+	if strings.Contains(contentEncoding, "gzip") {
+		logger.AgentLog.Debug("Get compress answer data in PushBatch function", zap.String("Content-Encoding", contentEncoding))
+	} else {
+		logger.AgentLog.Debug("Get uncompress answer data in PushBatch function", zap.String("Content-Encoding", contentEncoding))
+	}
+
+	responceMetrics := resp.Body()
+	if !bytes.Equal(bufEncode.Bytes(), responceMetrics) {
+		return fmt.Errorf("answer metric from server not equal pushing metric: get %d, want %d", responceMetrics, bufEncode.Bytes())
+	}
+
+	// Десериализую данные полученные от сервера, в основном для дебага
+	var resJSON []repositories.Metric
+	buRes := bytes.NewBuffer(responceMetrics)
+	dec := json.NewDecoder(buRes)
+	if err := dec.Decode(&resJSON); err != nil {
+		logger.AgentLog.Error("decode decompress data from server error ", zap.String("error", error.Error(err)))
+		return err
+	}
+	//logger.AgentLog.Debug(fmt.Sprintf("decode metrics from server %s", resJSON.String()))
+
+	logger.AgentLog.Debug("Success push batch metrics in JSON format")
+	return nil
+}
+
+// PushMetrics отправляет все метрики батчем
+func PushMetricsBatch(address, action string, metrics *storage.MetricsStats, client *resty.Client) {
+	metrics.Lock()
+	defer metrics.Unlock()
+	metricsSlice := make([]repositories.Metric, 0)
+
+	// создаю слайс с метриками для отправки батчем
+	for _, metricName := range storage.AllMetrics {
+		typeMetric, value, err := metrics.GetMetricString(metricName)
+		if err != nil {
+			logger.AgentLog.Error(fmt.Sprintf("Failed to get metric %s: %v\n", typeMetric, err), zap.String("action", "push metrics"))
+			continue
+		}
+		metric, err := BuildMetric(typeMetric, metricName, value)
+		if err != nil {
+			logger.AgentLog.Error(fmt.Sprintf("Failed to build metric structer %s: %v\n", typeMetric, err), zap.String("action", "push metrics"))
+			continue
+		}
+		metricsSlice = append(metricsSlice, metric)
+	}
+	er := PushBatch(address, action, metricsSlice, client)
+	if er != nil {
+		logger.AgentLog.Error("Failed to push batch metrics", zap.String("action", "push metrics"), zap.String("error", error.Error(er)))
+	}
+}
+
 // PushMetricsTimer запускает отправку метрик с интервалом
 func PushMetricsTimer(address, action string, metrics *storage.MetricsStats) {
 	sleepInterval := GetReportInterval() * time.Second
 	for {
 		client := resty.New()
-		PushMetrics(address, action, metrics, client)
+		PushMetricsBatch(address, action, metrics, client)
 		logger.AgentLog.Debug("Running agent", zap.String("action", "push metrics"))
 		time.Sleep(sleepInterval)
 	}

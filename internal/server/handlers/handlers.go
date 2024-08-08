@@ -73,7 +73,7 @@ func GetMetricJSON(res http.ResponseWriter, req *http.Request, storage repositor
 
 	defer req.Body.Close()
 
-	var metrics repositories.Metrics
+	var metrics repositories.Metric
 	if err := json.NewDecoder(req.Body).Decode(&metrics); err != nil {
 		logger.ServerLog.Error("In GetMetricJSON decode body error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
 		http.Error(res, err.Error(), http.StatusBadRequest)
@@ -145,6 +145,51 @@ func GetMetric(res http.ResponseWriter, req *http.Request, storage repositories.
 	}
 }
 
+// Фнукция для обновления метрик через json батч, который является слайсом метрик
+func UpdateMetricsBatch(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
+	// Проверка на nil для storage
+	if storage == nil {
+		http.Error(res, "Storage not initialized", http.StatusInternalServerError)
+		return
+	}
+
+	res.Header().Set("Content-Type", "application/json")
+
+	metrics := make([]repositories.Metric, 0)
+
+	if err := json.NewDecoder(req.Body).Decode(&metrics); err != nil {
+		logger.ServerLog.Error("Decode message error", zap.String("address", req.URL.String()))
+		http.Error(res, "Decode message error", http.StatusInternalServerError)
+		return
+	}
+
+	err := storage.AddMetricsFromSlice(req.Context(), metrics)
+	if err != nil {
+		logger.ServerLog.Error("add metric into server error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	logger.ServerLog.Debug("Successful decode metrcic from json", zap.String("address: ", req.URL.String()))
+
+	bodyDebug, _ := io.ReadAll(req.Body)
+	logger.ServerLog.Debug("message before compress", zap.String("bytes: ", string(bodyDebug)))
+
+	res.WriteHeader(http.StatusOK)
+
+	enc := json.NewEncoder(res)
+	if err := enc.Encode(metrics); err != nil {
+		logger.ServerLog.Error("error encoding response", zap.String("error", error.Error(err)))
+		return
+	}
+
+	logger.ServerLog.Debug("successful write encode data to answer message in UpdateMetricsBatch")
+
+	logger.ServerLog.Debug("server answer is", zap.String("Content-Encoding", res.Header().Get("Content-Encoding")),
+		zap.String("Status-Code", res.Header().Get("Status-Code")),
+		zap.String("Content-Type", res.Header().Get("Content-Type")))
+}
+
 // Фнукция для обновления метрик через json
 // Благодаря использованию роутера chi в этот хэндлер будут попадать только запросы POST
 func UpdateMetricsJSON(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
@@ -153,11 +198,10 @@ func UpdateMetricsJSON(res http.ResponseWriter, req *http.Request, storage repos
 		http.Error(res, "Storage not initialized", http.StatusInternalServerError)
 		return
 	}
-	logger.ServerLog.Debug("Storage is not nil") //---------------------------------------------
 
 	res.Header().Set("Content-Type", "application/json")
 
-	var metrics = repositories.Metrics{}
+	var metrics = repositories.Metric{}
 
 	if err := json.NewDecoder(req.Body).Decode(&metrics); err != nil {
 		logger.ServerLog.Error("Decode message error", zap.String("address", req.URL.String()))
@@ -277,6 +321,13 @@ func GetGlobalHandler(stor repositories.ServerRepo) http.HandlerFunc {
 func PingDatabaseHandler(ctx context.Context, db *sql.DB) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		PingDatabase(ctx, res, req, db)
+	}
+	return fn
+}
+
+func UpdateMetricsBatchHandler(stor repositories.ServerRepo) http.HandlerFunc {
+	fn := func(res http.ResponseWriter, req *http.Request) {
+		UpdateMetricsBatch(res, req, stor)
 	}
 	return fn
 }

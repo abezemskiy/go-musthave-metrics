@@ -88,13 +88,13 @@ func (storage *MemStorage) GetAllMetrics(ctx context.Context) (string, error) {
 	return result, nil
 }
 
-func (storage *MemStorage) GetAllMetricsSlice(ctx context.Context) ([]repositories.Metrics, error) {
+func (storage *MemStorage) GetAllMetricsSlice(ctx context.Context) ([]repositories.Metric, error) {
 	storage.Mutex.Lock()
 	defer storage.Mutex.Unlock()
 
-	result := make([]repositories.Metrics, 0)
+	result := make([]repositories.Metric, 0)
 	for name, value := range storage.gauges {
-		metric := repositories.Metrics{
+		metric := repositories.Metric{
 			ID:    name,
 			MType: "gauge",
 			Value: &value,
@@ -102,7 +102,7 @@ func (storage *MemStorage) GetAllMetricsSlice(ctx context.Context) ([]repositori
 		result = append(result, metric)
 	}
 	for name, delta := range storage.counters {
-		metric := repositories.Metrics{
+		metric := repositories.Metric{
 			ID:    name,
 			MType: "counter",
 			Delta: &delta,
@@ -112,7 +112,7 @@ func (storage *MemStorage) GetAllMetricsSlice(ctx context.Context) ([]repositori
 	return result, nil
 }
 
-func (storage *MemStorage) AddMetricsFromSlice(ctx context.Context, metrics []repositories.Metrics) error {
+func (storage *MemStorage) AddMetricsFromSlice(ctx context.Context, metrics []repositories.Metric) error {
 	if metrics == nil {
 		return nil
 	}

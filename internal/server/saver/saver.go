@@ -55,7 +55,7 @@ type WriterInterface interface {
 }
 
 type ReadInterface interface {
-	ReadMetrics() ([]repositories.Metrics, error)
+	ReadMetrics() ([]repositories.Metric, error)
 }
 
 // SaverWriter --------------------------------------------------------------------------------------------------
@@ -157,7 +157,7 @@ func NewReader(filename string) (*Reader, error) {
 }
 
 // Метод для чтения метрик из файла и записи их в слайс
-func (saver *Reader) ReadMetrics() ([]repositories.Metrics, error) {
+func (saver *Reader) ReadMetrics() ([]repositories.Metric, error) {
 	var bufRead bytes.Buffer
 
 	_, err := bufRead.ReadFrom(saver.reader)
@@ -172,7 +172,7 @@ func (saver *Reader) ReadMetrics() ([]repositories.Metrics, error) {
 	}
 
 	// преобразуем данные из JSON-представления в структуру
-	var metrics = make([]repositories.Metrics, 0)
+	var metrics = make([]repositories.Metric, 0)
 
 	dec := json.NewDecoder(&bufRead)
 	er := dec.Decode(&metrics)

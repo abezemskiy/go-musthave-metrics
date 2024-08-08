@@ -15,16 +15,16 @@ type (
 		AddGauge(context.Context, string, float64) error
 		AddCounter(context.Context, string, int64) error
 		GetAllMetrics(context.Context) (string, error)
-		AddMetricsFromSlice(context.Context, []Metrics) error
+		AddMetricsFromSlice(context.Context, []Metric) error
 		//GetCounters() map[string]int64
 		// GetGauges() map[string]float64
-		GetAllMetricsSlice(context.Context) ([]Metrics, error)
+		GetAllMetricsSlice(context.Context) ([]Metric, error)
 		Bootstrap(context.Context) error
 	}
 
 	// Структура для работы с метриками json формата
 
-	Metrics struct {
+	Metric struct {
 		ID    string   `json:"id"`              // имя метрики
 		MType string   `json:"type"`            // параметр, принимающий значение gauge или counter
 		Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
@@ -32,7 +32,7 @@ type (
 	}
 )
 
-func (metrcic Metrics) String() string {
+func (metrcic Metric) String() string {
 	var delta = "nil"
 	if metrcic.Delta != nil {
 		delta = fmt.Sprintf("%d", *metrcic.Delta)

@@ -96,7 +96,7 @@ func (s Store) GetMetric(ctx context.Context, metricType string, metricName stri
 	`
 	row := s.conn.QueryRowContext(ctx, query, metricName)
 
-	var metric repositories.Metrics
+	var metric repositories.Metric
 	err := row.Scan(&metric.ID, &metric.MType, &metric.Delta, &metric.Value)
 	if err != nil {
 		return "", err
@@ -195,7 +195,7 @@ func (s Store) AddCounter(ctx context.Context, nameMetric string, value int64) e
 func (s Store) GetAllMetrics(ctx context.Context) (string, error) {
 	metrics, err := s.GetAllMetricsSlice(ctx)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	var result string
 	for _, metric := range metrics {
@@ -207,7 +207,7 @@ func (s Store) GetAllMetrics(ctx context.Context) (string, error) {
 	}
 	return result, nil
 }
-func (s Store) AddMetricsFromSlice(ctx context.Context, metrics []repositories.Metrics) error {
+func (s Store) AddMetricsFromSlice(ctx context.Context, metrics []repositories.Metric) error {
 	// запускаем транзакцию
 	tx, err := s.conn.BeginTx(ctx, nil)
 	if err != nil {
@@ -219,45 +219,35 @@ func (s Store) AddMetricsFromSlice(ctx context.Context, metrics []repositories.M
 	}()
 
 	for _, metric := range metrics {
-		if metric.MType == "gauge" {
-			// Удаляя предыдущую запись, оставляю в таблице только актуальные значения метрик
-			queryDelete := `
-				DELETE FROM metrics
-				WHERE id = $1
-			`
-			_, err = tx.ExecContext(ctx, queryDelete, metric.ID)
-			if err != nil {
-				return err
-			}
+		// Удаляя предыдущую запись, оставляю в таблице только актуальные значения метрик
+		queryDelete := `
+		DELETE FROM metrics
+		WHERE id = $1
+		`
+		_, err = tx.ExecContext(ctx, queryDelete, metric.ID)
+		if err != nil {
+			return err
+		}
 
+		if metric.MType == "gauge" {
 			queryAdd := `
-				INSERT INTO metrics
-				(id, mtype, value)
-				VALUES
-				($1,$2,$3);
+			INSERT INTO metrics
+			(id, mtype, value)
+			VALUES
+			($1,$2,$3);
 			`
-			_, err = tx.ExecContext(ctx, queryAdd, metric.ID, "gauge", metric.Value)
+			_, err = tx.ExecContext(ctx, queryAdd, metric.ID, "gauge", *metric.Value)
 			if err != nil {
 				return err
 			}
 		} else {
-			// Удаляя предыдущую запись, оставляю в таблице только актуальные значения метрик
-			queryDelete := `
-				DELETE FROM metrics
-				WHERE id = $1
-			`
-			_, err = tx.ExecContext(ctx, queryDelete, metric.ID)
-			if err != nil {
-				return err
-			}
-
 			queryAdd := `
-				INSERT INTO metrics
-				(id, mtype, value)
-				VALUES
-				($1,$2,$3);
+			INSERT INTO metrics
+			(id, mtype, delta)
+			VALUES
+			($1,$2,$3);
 			`
-			_, err = tx.ExecContext(ctx, queryAdd, metric.ID, "counter", metric.Delta)
+			_, err = tx.ExecContext(ctx, queryAdd, metric.ID, "counter", *metric.Delta)
 			if err != nil {
 				return err
 			}
@@ -272,8 +262,8 @@ func (s Store) AddMetricsFromSlice(ctx context.Context, metrics []repositories.M
 
 // }
 
-func (s Store) GetAllMetricsSlice(ctx context.Context) ([]repositories.Metrics, error) {
-	metrics := make([]repositories.Metrics, 0)
+func (s Store) GetAllMetricsSlice(ctx context.Context) ([]repositories.Metric, error) {
+	metrics := make([]repositories.Metric, 0)
 
 	rows, err := s.conn.QueryContext(ctx, "SELECT id, mtype, delta, value FROM metrics")
 	if err != nil {
@@ -281,7 +271,7 @@ func (s Store) GetAllMetricsSlice(ctx context.Context) ([]repositories.Metrics, 
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var metric repositories.Metrics
+		var metric repositories.Metric
 		err = rows.Scan(&metric.ID, &metric.MType, &metric.Delta, &metric.Value)
 		if err != nil {
 			return nil, err

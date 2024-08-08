@@ -116,6 +116,7 @@ func MetricRouter(ctx context.Context, stor repositories.ServerRepo, db *sql.DB)
 		r.Get("/", logger.RequestLogger(compress.GzipMiddleware(handlers.GetGlobalHandler(stor))))
 		r.Get("/ping", logger.RequestLogger(compress.GzipMiddleware(handlers.PingDatabaseHandler(ctx, db))))
 
+		r.Post("/updates", logger.RequestLogger(compress.GzipMiddleware(handlers.UpdateMetricsBatchHandler(stor))))
 		r.Route("/update", func(r chi.Router) {
 			r.Post("/", logger.RequestLogger(compress.GzipMiddleware(handlers.UpdateMetricsJSONHandler(stor))))
 			r.Post("/{metricType}/{metricName}/{metricValue}", logger.RequestLogger(compress.GzipMiddleware(handlers.UpdateMetricsHandler(stor))))
