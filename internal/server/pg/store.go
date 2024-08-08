@@ -42,7 +42,9 @@ func (s Store) Bootstrap(ctx context.Context) error {
 	}
 
 	// в случае неуспешного коммита все изменения транзакции будут отменены
-	defer tx.Rollback()
+	defer func() error {
+		return tx.Rollback()
+	}()
 
 	// создаём таблицу с метриками и необходимые индексы
 	_, errExec := tx.ExecContext(ctx, `
@@ -88,10 +90,9 @@ func (s Store) GetMetric(ctx context.Context, metricType string, metricName stri
 		SELECT id,
 			   mtype,
 			   delta,
-			   value,
+			   value
 		FROM metrics
 		WHERE id = $1
-		)
 	`
 	row := s.conn.QueryRowContext(ctx, query, metricName)
 
@@ -100,10 +101,18 @@ func (s Store) GetMetric(ctx context.Context, metricType string, metricName stri
 	if err != nil {
 		return "", err
 	}
-	if metric.MType == "gauge" {
-		return fmt.Sprintf("%g", *metric.Value), nil
+	if metric.MType != metricType {
+		return "", fmt.Errorf("metric type is different, metric type in database is: %s, metric type in request is: %s", metric.MType, metricType)
 	}
-	if metric.MType == "counter" {
+	if metric.MType == "gauge" {
+		if metric.Value == nil {
+			return "", fmt.Errorf("value of gauge metric is nil")
+		}
+		return fmt.Sprintf("%g", *metric.Value), nil
+	} else if metric.MType == "counter" {
+		if metric.Delta == nil {
+			return "", fmt.Errorf("value of counter metric is nil")
+		}
 		return fmt.Sprintf("%d", *metric.Delta), nil
 	}
 	return "", fmt.Errorf("whrong type of metric")
@@ -117,7 +126,9 @@ func (s Store) AddGauge(ctx context.Context, nameMetric string, value float64) e
 	}
 
 	// в случае неуспешного коммита все изменения транзакции будут отменены
-	defer tx.Rollback()
+	defer func() error {
+		return tx.Rollback()
+	}()
 
 	// Удаляя предыдущую запись, оставляю в таблице только актуальные значения метрик
 	queryDelete := `
@@ -152,7 +163,9 @@ func (s Store) AddCounter(ctx context.Context, nameMetric string, value int64) e
 	}
 
 	// в случае неуспешного коммита все изменения транзакции будут отменены
-	defer tx.Rollback()
+	defer func() error {
+		return tx.Rollback()
+	}()
 
 	// Удаляя предыдущую запись, оставляю в таблице только актуальные значения метрик
 	queryDelete := `
@@ -179,8 +192,20 @@ func (s Store) AddCounter(ctx context.Context, nameMetric string, value int64) e
 	return tx.Commit()
 }
 
-func (s Store) GetAllMetrics() string {
-	return ""
+func (s Store) GetAllMetrics(ctx context.Context) (string, error) {
+	metrics, err := s.GetAllMetricsSlice(ctx)
+	if err != nil {
+		return "", nil
+	}
+	var result string
+	for _, metric := range metrics {
+		if metric.MType == "gauge" {
+			result += fmt.Sprintf("type: %s, name: %s, value: %g\n", metric.MType, metric.ID, *metric.Value)
+		} else {
+			result += fmt.Sprintf("type: %s, name: %s, value: %d\n", metric.MType, metric.ID, *metric.Delta)
+		}
+	}
+	return result, nil
 }
 func (s Store) AddMetricsFromSlice(ctx context.Context, metrics []repositories.Metrics) error {
 	// запускаем транзакцию
@@ -189,7 +214,9 @@ func (s Store) AddMetricsFromSlice(ctx context.Context, metrics []repositories.M
 		return err
 	}
 	// в случае неуспешного коммита все изменения транзакции будут отменены
-	defer tx.Rollback()
+	defer func() error {
+		return tx.Rollback()
+	}()
 
 	for _, metric := range metrics {
 		if metric.MType == "gauge" {

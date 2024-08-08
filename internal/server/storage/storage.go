@@ -122,16 +122,26 @@ func (storage *MemStorage) AddMetricsFromSlice(ctx context.Context, metrics []re
 			if metric.Value == nil {
 				return fmt.Errorf("invalid metric, value of gauge metric is nil")
 			}
-			storage.AddGauge(ctx, metric.ID, *metric.Value)
+			err := storage.AddGauge(ctx, metric.ID, *metric.Value)
+			if err != nil {
+				return fmt.Errorf("add gauge error: %f", err)
+			}
 		} else if metric.MType == "counter" {
 			if metric.Delta == nil {
 				return fmt.Errorf("invalid metric, delta of counter metric is nil")
 			}
-			storage.AddCounter(ctx, metric.ID, *metric.Delta)
+			err := storage.AddCounter(ctx, metric.ID, *metric.Delta)
+			if err != nil {
+				return fmt.Errorf("add counter error: %f", err)
+			}
 		} else {
 			return fmt.Errorf("invalid metric, undefined type of metric: %s", metric.MType)
 		}
 	}
+	return nil
+}
+
+func (storage *MemStorage) Bootstrap(ctx context.Context) error {
 	return nil
 }
 

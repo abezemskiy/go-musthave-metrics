@@ -19,6 +19,7 @@ type (
 		//GetCounters() map[string]int64
 		// GetGauges() map[string]float64
 		GetAllMetricsSlice(context.Context) ([]Metrics, error)
+		Bootstrap(context.Context) error
 	}
 
 	// Структура для работы с метриками json формата

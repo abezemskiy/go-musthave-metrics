@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	tmpl         *template.Template
+	tmpl *template.Template
 )
 
 func init() {
@@ -44,7 +44,7 @@ func GetGlobal(res http.ResponseWriter, req *http.Request, storage repositories.
 	res.Header().Set("Content-Type", "text/html")
 	res.WriteHeader(http.StatusOK)
 	metrics, err := storage.GetAllMetrics(req.Context())
-	if err != nil{
+	if err != nil {
 		logger.ServerLog.Error("get all metrics error in GetGlobal handler", zap.String("error", error.Error(err)))
 		res.WriteHeader(http.StatusInternalServerError)
 		return
@@ -59,10 +59,10 @@ func GetGlobal(res http.ResponseWriter, req *http.Request, storage repositories.
 
 func PingDatabase(ctx context.Context, res http.ResponseWriter, req *http.Request, db *sql.DB) {
 	if err := db.PingContext(ctx); err != nil {
-        logger.ServerLog.Error("fail to ping database", zap.String("error", error.Error(err)))
+		logger.ServerLog.Error("fail to ping database", zap.String("error", error.Error(err)))
 		res.WriteHeader(http.StatusInternalServerError)
 		return
-    }
+	}
 	res.WriteHeader(http.StatusOK)
 }
 
@@ -121,12 +121,15 @@ func GetMetricJSON(res http.ResponseWriter, req *http.Request, storage repositor
 }
 
 func GetMetric(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
+	logger.ServerLog.Debug("in GetMetric handler", zap.String("address", req.URL.String()))
+
 	res.Header().Set("Content-Type", "text/plan")
 	metricType := chi.URLParam(req, "metricType")
 	metricName := chi.URLParam(req, "metricName")
 
 	value, err := storage.GetMetric(req.Context(), metricType, metricName)
 	if err != nil {
+		logger.ServerLog.Error("get metric error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
 		res.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -170,7 +173,7 @@ func UpdateMetricsJSON(res http.ResponseWriter, req *http.Request, storage repos
 			return
 		}
 		err := storage.AddGauge(req.Context(), metrics.ID, *metrics.Value)
-		if err != nil{
+		if err != nil {
 			logger.ServerLog.Error("add gauge error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
 			res.WriteHeader(http.StatusInternalServerError)
 			return
@@ -182,7 +185,7 @@ func UpdateMetricsJSON(res http.ResponseWriter, req *http.Request, storage repos
 			return
 		}
 		err := storage.AddCounter(req.Context(), metrics.ID, *metrics.Delta)
-		if err != nil{
+		if err != nil {
 			logger.ServerLog.Error("add counter error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
 			res.WriteHeader(http.StatusInternalServerError)
 			return
@@ -239,7 +242,7 @@ func UpdateMetrics(res http.ResponseWriter, req *http.Request, storage repositor
 			return
 		}
 		err = storage.AddGauge(req.Context(), metricName, value)
-		if err != nil{
+		if err != nil {
 			logger.ServerLog.Error("add gauge error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
 			res.WriteHeader(http.StatusInternalServerError)
 			return
@@ -251,7 +254,7 @@ func UpdateMetrics(res http.ResponseWriter, req *http.Request, storage repositor
 			return
 		}
 		err = storage.AddCounter(req.Context(), metricName, value)
-		if err != nil{
+		if err != nil {
 			logger.ServerLog.Error("add counter error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
 			res.WriteHeader(http.StatusInternalServerError)
 			return
@@ -271,7 +274,7 @@ func GetGlobalHandler(stor repositories.ServerRepo) http.HandlerFunc {
 	return fn
 }
 
-func PingDatabaseHandler(ctx context.Context,db *sql.DB) http.HandlerFunc {
+func PingDatabaseHandler(ctx context.Context, db *sql.DB) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		PingDatabase(ctx, res, req, db)
 	}
