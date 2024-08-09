@@ -253,7 +253,6 @@ func PushBatch(address, action string, metricsSlice []repositories.Metric, clien
 		logger.AgentLog.Error("decode decompress data from server error ", zap.String("error", error.Error(err)))
 		return err
 	}
-	//logger.AgentLog.Debug(fmt.Sprintf("decode metrics from server %s", resJSON.String()))
 
 	logger.AgentLog.Debug("Success push batch metrics in JSON format")
 	return nil

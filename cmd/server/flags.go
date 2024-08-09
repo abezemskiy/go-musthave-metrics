@@ -33,9 +33,6 @@ func parseFlags() int {
 	flag.StringVar(&flagFileStoragePath, "f", "", "path address to saving metrics file") // Путь к файлу по умолчанию: ./metrics.json
 	flagRestoreTemp := flag.Bool("r", true, "for define needed of loading metrics from file while server starting")
 	// настройка флагов для хранения метрик в базе данных
-	// Значение адреса БД по умолчанию
-	//ps := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable",
-	//	`localhost`, `default`, `XXXXXXXX`, `default`)
 	flag.StringVar(&flagDatabaseDsn, "d", "", "database connection address") // host=localhost user=metrics password=metrics dbname=metricsdb  sslmode=disable
 
 	flag.Parse()

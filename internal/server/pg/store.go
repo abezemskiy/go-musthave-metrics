@@ -130,23 +130,13 @@ func (s Store) AddGauge(ctx context.Context, nameMetric string, value float64) e
 		return tx.Rollback()
 	}()
 
-	// Удаляя предыдущую запись, оставляю в таблице только актуальные значения метрик
-	queryDelete := `
-		DELETE FROM metrics
-		WHERE id = $1
-	`
-	_, err = tx.ExecContext(ctx, queryDelete, nameMetric)
-	if err != nil {
-		return err
-	}
-
-	queryAdd := `
-		INSERT INTO metrics
-		(id, mtype, value)
-		VALUES
-		($1,$2,$3);
-	`
-	_, err = tx.ExecContext(ctx, queryAdd, nameMetric, "gauge", value)
+	queryUpsert := `
+				INSERT INTO metrics (id, mtype, value)
+				VALUES ($1, $2, $3)
+				ON CONFLICT (id) 
+				DO UPDATE SET value = EXCLUDED.value;
+				`
+	_, err = tx.ExecContext(ctx, queryUpsert, nameMetric, "gauge", value)
 	if err != nil {
 		return err
 	}
@@ -167,27 +157,16 @@ func (s Store) AddCounter(ctx context.Context, nameMetric string, value int64) e
 		return tx.Rollback()
 	}()
 
-	// Удаляя предыдущую запись, оставляю в таблице только актуальные значения метрик
-	queryDelete := `
-		DELETE FROM metrics
-		WHERE id = $1
-	`
-	_, err = tx.ExecContext(ctx, queryDelete, nameMetric)
+	queryUpsert := `
+				INSERT INTO metrics (id, mtype, delta)
+				VALUES ($1, $2, $3)
+				ON CONFLICT (id) 
+				DO UPDATE SET delta = metrics.delta + EXCLUDED.delta;
+				`
+	_, err = tx.ExecContext(ctx, queryUpsert, nameMetric, "counter", value)
 	if err != nil {
 		return err
 	}
-
-	query := `
-	INSERT INTO metrics
-	(id, mtype, delta)
-	VALUES
-	($1,$2,$3);
-`
-	_, err = tx.ExecContext(ctx, query, nameMetric, "counter", value)
-	if err != nil {
-		return err
-	}
-
 	// коммитим транзакцию
 	return tx.Commit()
 }
@@ -219,48 +198,35 @@ func (s Store) AddMetricsFromSlice(ctx context.Context, metrics []repositories.M
 	}()
 
 	for _, metric := range metrics {
-		// Удаляя предыдущую запись, оставляю в таблице только актуальные значения метрик
-		queryDelete := `
-		DELETE FROM metrics
-		WHERE id = $1
-		`
-		_, err = tx.ExecContext(ctx, queryDelete, metric.ID)
-		if err != nil {
-			return err
-		}
 
 		if metric.MType == "gauge" {
-			queryAdd := `
-			INSERT INTO metrics
-			(id, mtype, value)
-			VALUES
-			($1,$2,$3);
-			`
-			_, err = tx.ExecContext(ctx, queryAdd, metric.ID, "gauge", *metric.Value)
+			queryUpsert := `
+				INSERT INTO metrics (id, mtype, value)
+				VALUES ($1, $2, $3)
+				ON CONFLICT (id) 
+				DO UPDATE SET value = EXCLUDED.value;
+				`
+			_, err = tx.ExecContext(ctx, queryUpsert, metric.ID, "gauge", metric.Value)
 			if err != nil {
 				return err
 			}
 		} else {
-			queryAdd := `
-			INSERT INTO metrics
-			(id, mtype, delta)
-			VALUES
-			($1,$2,$3);
-			`
-			_, err = tx.ExecContext(ctx, queryAdd, metric.ID, "counter", *metric.Delta)
+			queryUpsert := `
+					INSERT INTO metrics (id, mtype, delta)
+					VALUES ($1, $2, $3)
+					ON CONFLICT (id) 
+					DO UPDATE SET delta = metrics.delta + EXCLUDED.delta;
+					`
+			_, err = tx.ExecContext(ctx, queryUpsert, metric.ID, "counter", metric.Delta)
 			if err != nil {
 				return err
 			}
 		}
+
 	}
 	// коммитим транзакцию
 	return tx.Commit()
 }
-
-// GetCounters() map[string]int64
-// func (s Store) GetGauges() (map[string]float64, error) {
-
-// }
 
 func (s Store) GetAllMetricsSlice(ctx context.Context) ([]repositories.Metric, error) {
 	metrics := make([]repositories.Metric, 0)

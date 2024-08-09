@@ -16,8 +16,6 @@ type (
 		AddCounter(context.Context, string, int64) error
 		GetAllMetrics(context.Context) (string, error)
 		AddMetricsFromSlice(context.Context, []Metric) error
-		//GetCounters() map[string]int64
-		// GetGauges() map[string]float64
 		GetAllMetricsSlice(context.Context) ([]Metric, error)
 		Bootstrap(context.Context) error
 	}

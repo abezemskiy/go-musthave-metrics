@@ -145,15 +145,4 @@ func (storage *MemStorage) Bootstrap(ctx context.Context) error {
 	return nil
 }
 
-// func (storage *MemStorage) GetCounters() map[string]int64 {
-// 	storage.Mutex.Lock()
-// 	defer storage.Mutex.Unlock()
-// 	return storage.counters
-// }
-// func (storage *MemStorage) GetGauges() map[string]float64 {
-// 	storage.Mutex.Lock()
-// 	defer storage.Mutex.Unlock()
-// 	return storage.gauges
-// }
-
 // Хранилище метрик -----------------------------------------------------------------------------------------

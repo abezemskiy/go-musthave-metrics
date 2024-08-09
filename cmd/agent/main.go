@@ -29,6 +29,6 @@ func run(metrics *storage.MetricsStats) error {
 	logger.AgentLog.Info("Running agent", zap.String("address", flagNetAddr))
 	go handlers.CollectMetricsTimer(metrics)
 	time.Sleep(50 * time.Millisecond)
-	handlers.PushMetricsTimer("http://"+flagNetAddr, "updates", metrics)
+	handlers.PushMetricsTimer("http://"+flagNetAddr, "updates/", metrics)
 	return nil
 }

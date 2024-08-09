@@ -534,20 +534,12 @@ func TestUpdateMetrics(t *testing.T) {
 			defer res.Body.Close() // Закрываем тело ответа
 			// проверяем код ответа
 			assert.Equal(t, tt.want.code, res.StatusCode)
-			//assert.Equal(t, tt.want.storage.GetCounters(), stor.GetCounters())
-			//assert.Equal(t, tt.want.storage.GetGauges(), stor.GetGauges())
-			// wantAll, err := tt.want.storage.GetAllMetrics(context.Background())
-			// require.NoError(t, err)
-			// getAll, errGet := stor.GetAllMetrics(context.Background())
-			// require.NoError(t, errGet)
-			// assert.Equal(t, wantAll, getAll)
 
 			wantAllSlice, errWantSlice := tt.want.storage.GetAllMetricsSlice(context.Background())
 			require.NoError(t, errWantSlice)
 			getAllSlice, errGetSlice := stor.GetAllMetricsSlice(context.Background())
 			require.NoError(t, errGetSlice)
 			deep.Equal(wantAllSlice, getAllSlice)
-			//assert.(t, wantAllSlice, getAllSlice)
 		})
 	}
 }
@@ -693,13 +685,6 @@ func TestUpdateMetricsJSON(t *testing.T) {
 				defer res.Body.Close() // Закрываем тело ответа
 				// проверяем код ответа
 				assert.Equal(t, tt.want.code, res.StatusCode)
-				//assert.Equal(t, tt.want.storage.GetCounters(), stor.GetCounters())
-				//assert.Equal(t, tt.want.storage.GetGauges(), stor.GetGauges())
-				// wantAll, err := tt.want.storage.GetAllMetric(context.Background())
-				// require.NoError(t, err)
-				// getAll, errGet := stor.GetAllMetrics(context.Background())
-				// require.NoError(t, errGet)
-				// assert.Equal(t, wantAll, getAll)
 
 				wantAllSlice, errWantSlice := tt.want.storage.GetAllMetricsSlice(context.Background())
 				require.NoError(t, errWantSlice)

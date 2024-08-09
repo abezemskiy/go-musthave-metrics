@@ -94,8 +94,6 @@ func TestPush(t *testing.T) {
 			if err := Push(ts.URL, tt.args.action, tt.args.typeMetric, tt.args.nameMetric, tt.args.valueMetric, tt.args.client); (err != nil) != tt.wantErr {
 				t.Errorf("PushJSON() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			//assert.Equal(t, tt.wantStor.GetCounters(), stor.GetCounters())
-			//assert.Equal(t, tt.wantStor.GetGauges(), stor.GetGauges())
 			wantAll, err := tt.wantStor.GetAllMetrics(context.Background())
 			require.NoError(t, err)
 			getAll, errGet := stor.GetAllMetrics(context.Background())
@@ -188,8 +186,6 @@ func TestPushJSON(t *testing.T) {
 			if err := PushJSON(ts.URL, tt.args.action, tt.args.typeMetric, tt.args.nameMetric, tt.args.valueMetric, tt.args.client); (err != nil) != tt.wantErr {
 				t.Errorf("PushJSON() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			//assert.Equal(t, tt.wantStor.GetCounters(), stor.GetCounters())
-			//assert.Equal(t, tt.wantStor.GetGauges(), stor.GetGauges())
 			wantAll, err := tt.wantStor.GetAllMetrics(context.Background())
 			require.NoError(t, err)
 			getAll, errGet := stor.GetAllMetrics(context.Background())

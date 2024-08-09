@@ -164,13 +164,6 @@ func TestHandlerUpdate(t *testing.T) {
 	for _, tt := range tests {
 		resp := testRequest(t, ts, "POST", tt.request)
 		assert.Equal(t, tt.want.code, resp.StatusCode)
-		//assert.Equal(t, tt.want.storage.GetCounters(), stor.GetCounters())
-		//assert.Equal(t, tt.want.storage.GetGauges(), stor.GetGauges())
-		// wantAll, err := tt.want.storage.GetAllMetrics(context.Background())
-		// require.NoError(t, err)
-		// getAll, errGet := stor.GetAllMetrics(context.Background())
-		// require.NoError(t, errGet)
-		// assert.Equal(t, wantAll, getAll)
 
 		wantAllSlice, errWantSlice := tt.want.storage.GetAllMetricsSlice(context.Background())
 		require.NoError(t, errWantSlice)
