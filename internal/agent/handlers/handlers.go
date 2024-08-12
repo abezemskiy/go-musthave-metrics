@@ -2,11 +2,16 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/compress"
@@ -20,6 +25,7 @@ import (
 var (
 	pollInterval   time.Duration = 2
 	reportInterval time.Duration = 10
+	contextTimeout time.Duration = 500 * time.Millisecond
 )
 
 func SetPollInterval(interval time.Duration) {
@@ -210,12 +216,17 @@ func PushBatch(address, action string, metricsSlice []repositories.Metric, clien
 		return err
 	}
 
+	// Создаю контекст с таймаутом
+	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
+	defer cancel()
+
 	url := fmt.Sprintf("%s/%s", address, action)
 	resp, err := client.R().
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Content-Encoding", "gzip").
 		SetHeader("Accept-Encoding", "gzip").
 		SetBody(compressBody).
+		SetContext(ctx).
 		Post(url)
 
 	if err != nil {
@@ -259,7 +270,7 @@ func PushBatch(address, action string, metricsSlice []repositories.Metric, clien
 }
 
 // PushMetrics отправляет все метрики батчем
-func PushMetricsBatch(address, action string, metrics *storage.MetricsStats, client *resty.Client) {
+func PushMetricsBatch(address, action string, metrics *storage.MetricsStats, client *resty.Client) error {
 	metrics.Lock()
 	defer metrics.Unlock()
 	metricsSlice := make([]repositories.Metric, 0)
@@ -278,9 +289,42 @@ func PushMetricsBatch(address, action string, metrics *storage.MetricsStats, cli
 		}
 		metricsSlice = append(metricsSlice, metric)
 	}
-	er := PushBatch(address, action, metricsSlice, client)
-	if er != nil {
-		logger.AgentLog.Error("Failed to push batch metrics", zap.String("action", "push metrics"), zap.String("error", error.Error(er)))
+	err := PushBatch(address, action, metricsSlice, client)
+	if err != nil {
+		logger.AgentLog.Error("Failed to push batch metrics", zap.String("action", "push metrics"), zap.String("error", error.Error(err)))
+		return err
+	}
+	return nil
+}
+
+// Проверка того, что ошибка это "connect: connection refused"
+func isConnectionRefused(err error) bool {
+	var netErr *net.OpError
+	if errors.As(err, &netErr) {
+		if syscallErr, ok := netErr.Err.(*os.SyscallError); ok {
+			if syscallErr.Err == syscall.ECONNREFUSED {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// Для повторной отправки запроса в случае, если сервер не отвечает. Установлено три дополнительных попыток
+func RetryExecPushFunction(address, action string, metrics *storage.MetricsStats, client *resty.Client) {
+	sleepIntervals := []time.Duration{0, 1, 3, 5}
+
+	for i := 0; i < 4; i++ {
+		logger.AgentLog.Debug(fmt.Sprintf("Push metrics to server, attemption %d", i+1))
+
+		time.Sleep(sleepIntervals[i] * time.Second)
+
+		err := PushMetricsBatch(address, action, metrics, client)
+		if err != nil && (errors.Is(err, context.DeadlineExceeded) || isConnectionRefused(err)) {
+			continue
+		} else {
+			return
+		}
 	}
 }
 
@@ -289,7 +333,7 @@ func PushMetricsTimer(address, action string, metrics *storage.MetricsStats) {
 	sleepInterval := GetReportInterval() * time.Second
 	for {
 		client := resty.New()
-		PushMetricsBatch(address, action, metrics, client)
+		RetryExecPushFunction(address, action, metrics, client)
 		logger.AgentLog.Debug("Running agent", zap.String("action", "push metrics"))
 		time.Sleep(sleepInterval)
 	}
