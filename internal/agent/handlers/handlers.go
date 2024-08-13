@@ -26,7 +26,7 @@ import (
 var (
 	pollInterval   time.Duration = 2
 	reportInterval time.Duration = 10
-	contextTimeout time.Duration = 500 * time.Millisecond
+	contextTimeout               = 500 * time.Millisecond
 )
 
 func SetPollInterval(interval time.Duration) {

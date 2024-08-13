@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 
-	"log"
-
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
 )
 
@@ -23,18 +21,6 @@ func NewStore(conn *sql.DB) *Store {
 
 // Bootstrap подготавливает БД к работе, создавая необходимые таблицы и индексы
 func (s Store) Bootstrap(ctx context.Context) error {
-	// Проверяем существование таблицы
-	tableName := "metrics"
-	exists, err := s.TableExists(tableName)
-	if err != nil {
-		return err
-	}
-	// Если таблица уже существует, то создавать её не нужно
-	if exists {
-		log.Printf("INFO table %s already exists\n", tableName)
-		return nil
-	}
-
 	// запускаем транзакцию
 	tx, err := s.conn.BeginTx(ctx, nil)
 	if err != nil {
@@ -46,9 +32,9 @@ func (s Store) Bootstrap(ctx context.Context) error {
 		return tx.Rollback()
 	}()
 
-	// создаём таблицу с метриками и необходимые индексы
+	// создаём таблицу с метриками и необходимые индексы, если таблица ещё не существует
 	_, errExec := tx.ExecContext(ctx, `
-        CREATE TABLE metrics (
+        CREATE TABLE IF NOT EXISTS metrics (
 			id varchar(128) PRIMARY KEY,
 			mtype varchar(128),
 			delta bigint DEFAULT NULL,
@@ -58,31 +44,13 @@ func (s Store) Bootstrap(ctx context.Context) error {
 	if errExec != nil {
 		return errExec
 	}
-	_, errExec = tx.ExecContext(ctx, `CREATE UNIQUE INDEX id ON metrics (id)`)
+	_, errExec = tx.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS id ON metrics (id)`)
 	if errExec != nil {
 		return errExec
 	}
 
 	// коммитим транзакцию
 	return tx.Commit()
-}
-
-// Метод проверяет существует ли конкрентная таблица в БД
-func (s Store) TableExists(tableName string) (bool, error) {
-	var exists bool
-	query := `
-		SELECT EXISTS (
-			SELECT 1 
-			FROM information_schema.tables 
-			WHERE table_schema = 'public' 
-			AND table_name = $1
-		)
-	`
-	err := s.conn.QueryRow(query, tableName).Scan(&exists)
-	if err != nil {
-		return false, err
-	}
-	return exists, nil
 }
 
 func (s Store) GetMetric(ctx context.Context, metricType string, metricName string) (string, error) {
