@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -19,6 +18,8 @@ import (
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/storage"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
 	"github.com/go-resty/resty/v2"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	"go.uber.org/zap"
 )
 
@@ -60,8 +61,8 @@ func CollectMetricsTimer(metrics *storage.MetricsStats) {
 	}
 }
 
+// Строю структуру метрики из принятых параметров
 func BuildMetric(typeMetric, nameMetric, valueMetric string) (metric repositories.Metric, err error) {
-	// Строю структуру метрики для сериализации из принятых параметров
 	metric.ID = nameMetric
 	metric.MType = typeMetric
 
@@ -69,7 +70,6 @@ func BuildMetric(typeMetric, nameMetric, valueMetric string) (metric repositorie
 	case "counter":
 		val, errParse := strconv.ParseInt(valueMetric, 10, 64)
 		if errParse != nil {
-			logger.AgentLog.Error("Convert string to int64 error: ", zap.String("error: ", error.Error(err)))
 			err = errParse
 			return
 		}
@@ -77,13 +77,11 @@ func BuildMetric(typeMetric, nameMetric, valueMetric string) (metric repositorie
 	case "gauge":
 		val, errParse := strconv.ParseFloat(valueMetric, 64)
 		if errParse != nil {
-			logger.AgentLog.Error("Convert string to float64 error: ", zap.String("error: ", error.Error(err)))
 			err = errParse
 			return
 		}
 		metric.Value = &val
 	default:
-		logger.AgentLog.Error("Invalid type of metric", zap.String("type: ", metric.MType)) //---------------------------------------------
 		err = fmt.Errorf("get invalid type of metric: %s", typeMetric)
 		return
 	}
@@ -134,7 +132,7 @@ func PushJSON(address, action, typeMetric, nameMetric, valueMetric string, clien
 
 	if resp.StatusCode() != http.StatusOK {
 		logger.AgentLog.Error("Geting status is not 200 ", zap.String("statusCode", fmt.Sprintf("%d", resp.StatusCode())))
-		return fmt.Errorf("status code is: %d", resp.StatusCode())
+		return fmt.Errorf("status code is: %d %w", resp.StatusCode(), errors.New(resp.String()))
 	}
 
 	contentEncoding := resp.Header().Get("Content-Encoding")
@@ -180,7 +178,7 @@ func Push(address, action, typemetric, namemetric, valuemetric string, client *r
 	return nil
 }
 
-// PushMetrics отправляет все метрики
+// Отправляет все накопленные метрики на сервер, поочередно отправляя каждую метрику по отдельности
 func PushMetrics(address, action string, metrics *storage.MetricsStats, client *resty.Client) {
 	metrics.Lock()
 	defer metrics.Unlock()
@@ -198,7 +196,7 @@ func PushMetrics(address, action string, metrics *storage.MetricsStats, client *
 	}
 }
 
-// Push отправляет метрику на сервер в JSON формате и возвращает ошибку при неудаче
+// Отправляет батч метрик на сервер
 func PushBatch(address, action string, metricsSlice []repositories.Metric, client *resty.Client) error {
 
 	// сериализую полученную слайс с метриками в json-представление  в виде слайса байт
@@ -241,9 +239,8 @@ func PushBatch(address, action string, metricsSlice []repositories.Metric, clien
 
 	if resp.StatusCode() != http.StatusOK {
 		logger.AgentLog.Error("Geting status is not 200 ", zap.String("statusCode", fmt.Sprintf("%d", resp.StatusCode())))
-		return fmt.Errorf("status code is: %d", resp.StatusCode())
+		return fmt.Errorf("status code is: %d %w", resp.StatusCode(), errors.New(resp.String()))
 	}
-
 	contentEncoding := resp.Header().Get("Content-Encoding")
 	if strings.Contains(contentEncoding, "gzip") {
 		logger.AgentLog.Debug("Get compress answer data in PushBatch function", zap.String("Content-Encoding", contentEncoding))
@@ -269,7 +266,7 @@ func PushBatch(address, action string, metricsSlice []repositories.Metric, clien
 	return nil
 }
 
-// PushMetrics отправляет все метрики батчем
+// Строит батч метрик и отправляет полученный батч на сервер в рамках одной передачи
 func PushMetricsBatch(address, action string, metrics *storage.MetricsStats, client *resty.Client) error {
 	metrics.Lock()
 	defer metrics.Unlock()
@@ -299,19 +296,51 @@ func PushMetricsBatch(address, action string, metrics *storage.MetricsStats, cli
 
 // Проверка того, что ошибка это "connect: connection refused"
 func isConnectionRefused(err error) bool {
-	var netErr *net.OpError
-	if errors.As(err, &netErr) {
-		if syscallErr, ok := netErr.Err.(*os.SyscallError); ok {
-			if syscallErr.Err == syscall.ECONNREFUSED {
-				return true
-			}
-		}
+	if err == nil {
+		return false
 	}
-	return false
+	return errors.Is(err, syscall.ECONNREFUSED) || strings.Contains(err.Error(), "dial tcp: connect: connection refused")
 }
 
+func isDBTransportError(err error) bool {
+	if err == nil {
+		return false
+	}
+	asPgError := false
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		asPgError = (pgerrcode.IsConnectionException(pgErr.Code) ||
+			pgErr.Code == pgerrcode.ConnectionDoesNotExist ||
+			pgErr.Code == pgerrcode.ConnectionFailure ||
+			pgErr.Code == pgerrcode.SQLClientUnableToEstablishSQLConnection)
+	}
+	asString := false
+	asString = strings.Contains(err.Error(), "connection exception") ||
+		strings.Contains(err.Error(), "connection does not exist") ||
+		strings.Contains(err.Error(), "connection failure") ||
+		strings.Contains(err.Error(), "SQL client unable to establish SQL connection")
+	return asPgError || asString
+}
+
+func isFileLockedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	asError := false
+	asError = errors.Is(err, syscall.EACCES) ||
+		errors.Is(err, syscall.EROFS) ||
+		errors.Is(err, os.ErrPermission)
+
+	asString := false
+	asString = strings.Contains(err.Error(), "permission denied") ||
+		strings.Contains(err.Error(), "read-only file system")
+	return asError || asString
+}
+
+type PushFunction = func(string, string, *storage.MetricsStats, *resty.Client) error
+
 // Для повторной отправки запроса в случае, если сервер не отвечает. Установлено три дополнительных попыток
-func RetryExecPushFunction(address, action string, metrics *storage.MetricsStats, client *resty.Client) {
+func RetryExecPushFunction(address, action string, metrics *storage.MetricsStats, client *resty.Client, pushFunction PushFunction) {
 	sleepIntervals := []time.Duration{0, 1, 3, 5}
 
 	for i := 0; i < 4; i++ {
@@ -319,8 +348,11 @@ func RetryExecPushFunction(address, action string, metrics *storage.MetricsStats
 
 		time.Sleep(sleepIntervals[i] * time.Second)
 
-		err := PushMetricsBatch(address, action, metrics, client)
-		if err != nil && (errors.Is(err, context.DeadlineExceeded) || isConnectionRefused(err)) {
+		err := pushFunction(address, action, metrics, client)
+		if err != nil && (errors.Is(err, context.DeadlineExceeded) ||
+			isConnectionRefused(err) ||
+			isDBTransportError(err)) ||
+			isFileLockedError(err) {
 			continue
 		} else {
 			return
@@ -333,7 +365,7 @@ func PushMetricsTimer(address, action string, metrics *storage.MetricsStats) {
 	sleepInterval := GetReportInterval() * time.Second
 	for {
 		client := resty.New()
-		RetryExecPushFunction(address, action, metrics, client)
+		RetryExecPushFunction(address, action, metrics, client, PushMetricsBatch)
 		logger.AgentLog.Debug("Running agent", zap.String("action", "push metrics"))
 		time.Sleep(sleepInterval)
 	}

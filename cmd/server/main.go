@@ -31,9 +31,6 @@ func main() {
 	}
 	defer db.Close()
 
-	// Создаю родительский контекст
-	ctx := context.Background()
-
 	// Создаю разные хранилища в зависимости от типа запуска сервера
 	var stor repositories.ServerRepo
 	if saveMode == SAVEINDATABASE {
@@ -69,7 +66,7 @@ func main() {
 		}
 	}
 
-	if err := run(ctx, stor, saverVar, db, saveMode); err != nil {
+	if err := run(stor, saverVar, db, saveMode); err != nil {
 		log.Fatalf("Error starting server: %v\n", err)
 	}
 
@@ -83,7 +80,7 @@ func main() {
 }
 
 // функция run будет полезна при инициализации зависимостей сервера перед запуском
-func run(ctx context.Context, stor repositories.ServerRepo, saverVar saver.WriterInterface, db *sql.DB, saveMode int) error {
+func run(stor repositories.ServerRepo, saverVar saver.WriterInterface, db *sql.DB, saveMode int) error {
 	if err := logger.Initialize(flagLogLevel); err != nil {
 		return err
 	}
@@ -93,28 +90,31 @@ func run(ctx context.Context, stor repositories.ServerRepo, saverVar saver.Write
 	if saveMode == SAVEINFILE {
 		reader, err = saver.NewReader(saver.GetFilestoragePath())
 		if err != nil {
-			log.Fatalf("Error create writer for saving metrics : %v\n", err)
+			logger.ServerLog.Fatal("create writer for saving metrics error", zap.String("error", error.Error(err)))
 		}
 	}
 
 	// Работаю с файлом для сохранения метрик, только в случае соответствующей конфигурации запуска сервера
 	if saveMode == SAVEINFILE {
 		// Загружаю на сервер метрики из файла, сохраненные в предыдущих запусках
-		saver.AddMetricsFromFile(stor, reader)
+		err := saver.AddMetricsFromFile(stor, reader)
+		if err != nil {
+			logger.ServerLog.Fatal("add metrics from file error", zap.String("error", error.Error(err)))
+		}
 		go FlushMetricsToFile(stor, saverVar)
 	}
 
 	logger.ServerLog.Info("Running server", zap.String("address", flagNetAddr))
-	return http.ListenAndServe(flagNetAddr, MetricRouter(ctx, stor, db))
+	return http.ListenAndServe(flagNetAddr, MetricRouter(stor, db))
 }
 
-func MetricRouter(ctx context.Context, stor repositories.ServerRepo, db *sql.DB) chi.Router {
+func MetricRouter(stor repositories.ServerRepo, db *sql.DB) chi.Router {
 
 	r := chi.NewRouter()
 
 	r.Route("/", func(r chi.Router) {
 		r.Get("/", logger.RequestLogger(compress.GzipMiddleware(handlers.GetGlobalHandler(stor))))
-		r.Get("/ping", logger.RequestLogger(compress.GzipMiddleware(handlers.PingDatabaseHandler(ctx, db))))
+		r.Get("/ping", logger.RequestLogger(compress.GzipMiddleware(handlers.PingDatabaseHandler(db))))
 
 		r.Post("/updates/", logger.RequestLogger(compress.GzipMiddleware(handlers.UpdateMetricsBatchHandler(stor))))
 		r.Route("/update", func(r chi.Router) {

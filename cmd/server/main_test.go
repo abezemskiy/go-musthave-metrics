@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/storage"
 	"github.com/go-test/deep"
@@ -25,11 +24,8 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string) *http.R
 
 func TestHandlerUpdate(t *testing.T) {
 	stor := storage.NewMemStorage(nil, map[string]int64{"testcount1": 1})
-	// Создаю родительский контекст
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
 
-	ts := httptest.NewServer(MetricRouter(ctx, stor, nil))
+	ts := httptest.NewServer(MetricRouter(stor, nil))
 
 	defer ts.Close()
 

@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"html/template"
@@ -46,7 +45,7 @@ func GetGlobal(res http.ResponseWriter, req *http.Request, storage repositories.
 	metrics, err := storage.GetAllMetrics(req.Context())
 	if err != nil {
 		logger.ServerLog.Error("get all metrics error in GetGlobal handler", zap.String("error", error.Error(err)))
-		res.WriteHeader(http.StatusInternalServerError)
+		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -57,10 +56,10 @@ func GetGlobal(res http.ResponseWriter, req *http.Request, storage repositories.
 	}
 }
 
-func PingDatabase(ctx context.Context, res http.ResponseWriter, req *http.Request, db *sql.DB) {
-	if err := db.PingContext(ctx); err != nil {
+func PingDatabase(res http.ResponseWriter, req *http.Request, db *sql.DB) {
+	if err := db.PingContext(req.Context()); err != nil {
 		logger.ServerLog.Error("fail to ping database", zap.String("error", error.Error(err)))
-		res.WriteHeader(http.StatusInternalServerError)
+		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	res.WriteHeader(http.StatusOK)
@@ -85,7 +84,7 @@ func GetMetricJSON(res http.ResponseWriter, req *http.Request, storage repositor
 
 	value, err := storage.GetMetric(req.Context(), metricType, metricName)
 	if err != nil {
-		res.WriteHeader(http.StatusNotFound)
+		http.Error(res, err.Error(), http.StatusNotFound)
 		return
 	}
 
@@ -130,7 +129,7 @@ func GetMetric(res http.ResponseWriter, req *http.Request, storage repositories.
 	value, err := storage.GetMetric(req.Context(), metricType, metricName)
 	if err != nil {
 		logger.ServerLog.Error("get metric error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
-		res.WriteHeader(http.StatusNotFound)
+		http.Error(res, err.Error(), http.StatusNotFound)
 		return
 	}
 	res.WriteHeader(http.StatusOK)
@@ -166,7 +165,7 @@ func UpdateMetricsBatch(res http.ResponseWriter, req *http.Request, storage repo
 	err := storage.AddMetricsFromSlice(req.Context(), metrics)
 	if err != nil {
 		logger.ServerLog.Error("add metric into server error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
-		res.WriteHeader(http.StatusInternalServerError)
+		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -219,7 +218,7 @@ func UpdateMetricsJSON(res http.ResponseWriter, req *http.Request, storage repos
 		err := storage.AddGauge(req.Context(), metrics.ID, *metrics.Value)
 		if err != nil {
 			logger.ServerLog.Error("add gauge error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
-			res.WriteHeader(http.StatusInternalServerError)
+			http.Error(res, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	case "counter":
@@ -231,7 +230,7 @@ func UpdateMetricsJSON(res http.ResponseWriter, req *http.Request, storage repos
 		err := storage.AddCounter(req.Context(), metrics.ID, *metrics.Delta)
 		if err != nil {
 			logger.ServerLog.Error("add counter error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
-			res.WriteHeader(http.StatusInternalServerError)
+			http.Error(res, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	default:
@@ -288,7 +287,7 @@ func UpdateMetrics(res http.ResponseWriter, req *http.Request, storage repositor
 		err = storage.AddGauge(req.Context(), metricName, value)
 		if err != nil {
 			logger.ServerLog.Error("add gauge error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
-			res.WriteHeader(http.StatusInternalServerError)
+			http.Error(res, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	case "counter":
@@ -300,7 +299,7 @@ func UpdateMetrics(res http.ResponseWriter, req *http.Request, storage repositor
 		err = storage.AddCounter(req.Context(), metricName, value)
 		if err != nil {
 			logger.ServerLog.Error("add counter error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
-			res.WriteHeader(http.StatusInternalServerError)
+			http.Error(res, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	default:
@@ -318,9 +317,9 @@ func GetGlobalHandler(stor repositories.ServerRepo) http.HandlerFunc {
 	return fn
 }
 
-func PingDatabaseHandler(ctx context.Context, db *sql.DB) http.HandlerFunc {
+func PingDatabaseHandler(db *sql.DB) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
-		PingDatabase(ctx, res, req, db)
+		PingDatabase(res, req, db)
 	}
 	return fn
 }
