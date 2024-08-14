@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,7 @@ import (
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/saver"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/storage"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-test/deep"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -79,25 +81,25 @@ func TestGetMetricJSON(t *testing.T) {
 		type want struct {
 			code        int
 			contentType string
-			metrics     repositories.Metrics
+			metrics     repositories.Metric
 		}
 		tests := []struct {
 			name    string
 			request string
-			body    repositories.Metrics
+			body    repositories.Metric
 			want    want
 		}{
 			{
 				name:    "Counter testcount#1",
 				request: "/value/",
-				body: repositories.Metrics{
+				body: repositories.Metric{
 					ID:    "testcount1",
 					MType: "counter",
 				},
 				want: want{
 					code:        200,
 					contentType: "application/json",
-					metrics: repositories.Metrics{
+					metrics: repositories.Metric{
 						ID:    "testcount1",
 						MType: "counter",
 						Delta: delta(4),
@@ -107,14 +109,14 @@ func TestGetMetricJSON(t *testing.T) {
 			{
 				name:    "Counter error#1",
 				request: "/value/",
-				body: repositories.Metrics{
+				body: repositories.Metric{
 					ID:    "testcount3",
 					MType: "counter",
 				},
 				want: want{
 					code:        404,
 					contentType: "application/json",
-					metrics: repositories.Metrics{
+					metrics: repositories.Metric{
 						ID:    "testcount3",
 						MType: "counter",
 					},
@@ -123,14 +125,14 @@ func TestGetMetricJSON(t *testing.T) {
 			{
 				name:    "Counter error#1",
 				request: "/value/",
-				body: repositories.Metrics{
+				body: repositories.Metric{
 					ID:    "testcount2",
 					MType: "couunter",
 				},
 				want: want{
 					code:        404,
 					contentType: "application/json",
-					metrics: repositories.Metrics{
+					metrics: repositories.Metric{
 						ID:    "testcount2",
 						MType: "couunter",
 					},
@@ -139,14 +141,14 @@ func TestGetMetricJSON(t *testing.T) {
 			{
 				name:    "Gauge testgauge#1",
 				request: "/value/",
-				body: repositories.Metrics{
+				body: repositories.Metric{
 					ID:    "testgauge1",
 					MType: "gauge",
 				},
 				want: want{
 					code:        200,
 					contentType: "application/json",
-					metrics: repositories.Metrics{
+					metrics: repositories.Metric{
 						ID:    "testgauge1",
 						MType: "gauge",
 						Value: value(3.134),
@@ -156,14 +158,14 @@ func TestGetMetricJSON(t *testing.T) {
 			{
 				name:    "Gauge error#1",
 				request: "/value",
-				body: repositories.Metrics{
+				body: repositories.Metric{
 					ID:    "testgauge3",
 					MType: "gauge",
 				},
 				want: want{
 					code:        404,
 					contentType: "application/json",
-					metrics: repositories.Metrics{
+					metrics: repositories.Metric{
 						ID:    "testgauge3",
 						MType: "gauge",
 					},
@@ -172,14 +174,14 @@ func TestGetMetricJSON(t *testing.T) {
 			{
 				name:    "Gauge error#2",
 				request: "/value",
-				body: repositories.Metrics{
+				body: repositories.Metric{
 					ID:    "testgauge2",
 					MType: "gauuge",
 				},
 				want: want{
 					code:        404,
 					contentType: "application/json",
-					metrics: repositories.Metrics{
+					metrics: repositories.Metric{
 						ID:    "testgauge2",
 						MType: "gauuge",
 					},
@@ -211,7 +213,7 @@ func TestGetMetricJSON(t *testing.T) {
 				// Проверяю тело ответа, если код ответа 200
 				if res.StatusCode == http.StatusOK {
 					// Десериализую структуру с метриками
-					var resMetric repositories.Metrics
+					var resMetric repositories.Metric
 					dec := json.NewDecoder(res.Body)
 					er := dec.Decode(&resMetric)
 					require.NoError(t, er)
@@ -237,17 +239,17 @@ func TestGetMetricJSON(t *testing.T) {
 		saverVar, err := saver.NewWriter(nameTestFile)
 		require.NoError(t, err)
 
-		m0 := repositories.Metrics{
+		m0 := repositories.Metric{
 			ID:    "testGauge0",
 			MType: "gauge",
 			Value: value(111.11),
 		}
-		m1 := repositories.Metrics{
+		m1 := repositories.Metric{
 			ID:    "testGauge1",
 			MType: "gauge",
 			Value: value(1234.124),
 		}
-		m2 := repositories.Metrics{
+		m2 := repositories.Metric{
 			ID:    "testCounter1",
 			MType: "counter",
 			Delta: delta(30),
@@ -255,12 +257,12 @@ func TestGetMetricJSON(t *testing.T) {
 
 		// Записываю метрики в файл, для загрузки в сервер при его инициализации
 		storForFluahFile := storage.NewDefaultMemStorage()
-		metrcSlice := []repositories.Metrics{
+		metrcSlice := []repositories.Metric{
 			m0,
 			m1,
 			m2,
 		}
-		errWrite := storForFluahFile.AddMetricsFromSlice(metrcSlice)
+		errWrite := storForFluahFile.AddMetricsFromSlice(context.Background(), metrcSlice)
 		require.NoError(t, errWrite)
 
 		errFlush := saverVar.WriteMetrics(storForFluahFile)
@@ -275,25 +277,25 @@ func TestGetMetricJSON(t *testing.T) {
 		type want struct {
 			code        int
 			contentType string
-			metrics     repositories.Metrics
+			metrics     repositories.Metric
 		}
 		tests := []struct {
 			name    string
 			request string
-			body    repositories.Metrics
+			body    repositories.Metric
 			want    want
 		}{
 			{
 				name:    "Test gauge#0",
 				request: "/value/",
-				body: repositories.Metrics{
+				body: repositories.Metric{
 					ID:    "testGauge0",
 					MType: "gauge",
 				},
 				want: want{
 					code:        200,
 					contentType: "application/json",
-					metrics: repositories.Metrics{
+					metrics: repositories.Metric{
 						ID:    "testGauge0",
 						MType: "gauge",
 						Value: value(111.11),
@@ -303,14 +305,14 @@ func TestGetMetricJSON(t *testing.T) {
 			{
 				name:    "Counter testcount#1",
 				request: "/value/",
-				body: repositories.Metrics{
+				body: repositories.Metric{
 					ID:    "testCounter1",
 					MType: "counter",
 				},
 				want: want{
 					code:        200,
 					contentType: "application/json",
-					metrics: repositories.Metrics{
+					metrics: repositories.Metric{
 						ID:    "testCounter1",
 						MType: "counter",
 						Delta: delta(30),
@@ -320,14 +322,14 @@ func TestGetMetricJSON(t *testing.T) {
 			{
 				name:    "Test gauge#1",
 				request: "/value/",
-				body: repositories.Metrics{
+				body: repositories.Metric{
 					ID:    "testGauge1",
 					MType: "gauge",
 				},
 				want: want{
 					code:        200,
 					contentType: "application/json",
-					metrics: repositories.Metrics{
+					metrics: repositories.Metric{
 						ID:    "testGauge1",
 						MType: "gauge",
 						Value: value(1234.124),
@@ -360,7 +362,7 @@ func TestGetMetricJSON(t *testing.T) {
 				// Проверяю тело ответа, если код ответа 200
 				if res.StatusCode == http.StatusOK {
 					// Десериализую структуру с метриками
-					var resMetric repositories.Metrics
+					var resMetric repositories.Metric
 					dec := json.NewDecoder(res.Body)
 					er := dec.Decode(&resMetric)
 					require.NoError(t, er)
@@ -532,8 +534,12 @@ func TestUpdateMetrics(t *testing.T) {
 			defer res.Body.Close() // Закрываем тело ответа
 			// проверяем код ответа
 			assert.Equal(t, tt.want.code, res.StatusCode)
-			assert.Equal(t, tt.want.storage.GetCounters(), stor.GetCounters())
-			assert.Equal(t, tt.want.storage.GetGauges(), stor.GetGauges())
+
+			wantAllSlice, errWantSlice := tt.want.storage.GetAllMetricsSlice(context.Background())
+			require.NoError(t, errWantSlice)
+			getAllSlice, errGetSlice := stor.GetAllMetricsSlice(context.Background())
+			require.NoError(t, errGetSlice)
+			deep.Equal(wantAllSlice, getAllSlice)
 		})
 	}
 }
@@ -556,13 +562,13 @@ func TestUpdateMetricsJSON(t *testing.T) {
 		tests := []struct {
 			name    string
 			request string
-			body    repositories.Metrics
+			body    repositories.Metric
 			want    want
 		}{
 			{
 				name:    "Counter testcount#1",
 				request: "/update",
-				body: repositories.Metrics{
+				body: repositories.Metric{
 					ID:    "testcount1",
 					MType: "counter",
 					Delta: delta(3),
@@ -576,7 +582,7 @@ func TestUpdateMetricsJSON(t *testing.T) {
 			{
 				name:    "Counter testcount#2",
 				request: "/update",
-				body: repositories.Metrics{
+				body: repositories.Metric{
 					ID:    "testcount2",
 					MType: "counter",
 					Delta: delta(1),
@@ -590,7 +596,7 @@ func TestUpdateMetricsJSON(t *testing.T) {
 			{
 				name:    "Counter testguage#1",
 				request: "/update",
-				body: repositories.Metrics{
+				body: repositories.Metric{
 					ID:    "testgauge1",
 					MType: "gauge",
 					Value: value(1),
@@ -604,7 +610,7 @@ func TestUpdateMetricsJSON(t *testing.T) {
 			{
 				name:    "Counter testguage#2",
 				request: "/update",
-				body: repositories.Metrics{
+				body: repositories.Metric{
 					ID:    "testgauge1",
 					MType: "gauge",
 					Value: value(3),
@@ -618,7 +624,7 @@ func TestUpdateMetricsJSON(t *testing.T) {
 			{
 				name:    "Counter testguage#3",
 				request: "/update",
-				body: repositories.Metrics{
+				body: repositories.Metric{
 					ID:    "testgauge2",
 					MType: "gauge",
 					Value: value(10),
@@ -632,7 +638,7 @@ func TestUpdateMetricsJSON(t *testing.T) {
 			{
 				name:    "Counter errort#1",
 				request: "/update",
-				body: repositories.Metrics{
+				body: repositories.Metric{
 					ID:    "testcount1",
 					MType: "counteer",
 					Delta: delta(10),
@@ -646,7 +652,7 @@ func TestUpdateMetricsJSON(t *testing.T) {
 			{
 				name:    "Guage errort#1",
 				request: "/update",
-				body: repositories.Metrics{
+				body: repositories.Metric{
 					ID:    "testguage1",
 					MType: "gauuge",
 					Value: value(10),
@@ -679,13 +685,17 @@ func TestUpdateMetricsJSON(t *testing.T) {
 				defer res.Body.Close() // Закрываем тело ответа
 				// проверяем код ответа
 				assert.Equal(t, tt.want.code, res.StatusCode)
-				assert.Equal(t, tt.want.storage.GetCounters(), stor.GetCounters())
-				assert.Equal(t, tt.want.storage.GetGauges(), stor.GetGauges())
+
+				wantAllSlice, errWantSlice := tt.want.storage.GetAllMetricsSlice(context.Background())
+				require.NoError(t, errWantSlice)
+				getAllSlice, errGetSlice := stor.GetAllMetricsSlice(context.Background())
+				require.NoError(t, errGetSlice)
+				deep.Equal(wantAllSlice, getAllSlice)
 
 				// Проверяю тело ответа, если код ответа 200
 				if res.StatusCode == http.StatusOK {
 					// Десериализую структуру с метриками
-					var resMetric repositories.Metrics
+					var resMetric repositories.Metric
 					dec := json.NewDecoder(res.Body)
 					er := dec.Decode(&resMetric)
 					require.NoError(t, er)

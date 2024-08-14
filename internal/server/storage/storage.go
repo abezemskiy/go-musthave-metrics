@@ -1,6 +1,8 @@
+// реализация интерфейса хранилища метрик
 package storage
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -35,19 +37,21 @@ func NewMemStorage(gaugesArg map[string]float64, countersArg map[string]int64) *
 	}
 }
 
-func (storage *MemStorage) AddGauge(name string, guage float64) {
+func (storage *MemStorage) AddGauge(ctx context.Context, name string, guage float64) error {
 	storage.Mutex.Lock()
 	defer storage.Mutex.Unlock()
 	storage.gauges[name] = guage
+	return nil
 }
 
-func (storage *MemStorage) AddCounter(name string, counter int64) {
+func (storage *MemStorage) AddCounter(ctx context.Context, name string, counter int64) error {
 	storage.Mutex.Lock()
 	defer storage.Mutex.Unlock()
 	storage.counters[name] += counter
+	return nil
 }
 
-func (storage *MemStorage) GetMetric(metricType, name string) (string, error) {
+func (storage *MemStorage) GetMetric(ctx context.Context, metricType, name string) (string, error) {
 	storage.Mutex.Lock()
 	defer storage.Mutex.Unlock()
 
@@ -69,7 +73,7 @@ func (storage *MemStorage) GetMetric(metricType, name string) (string, error) {
 	return "", fmt.Errorf("whrong type of metric")
 }
 
-func (storage *MemStorage) GetAllMetrics() string {
+func (storage *MemStorage) GetAllMetrics(ctx context.Context) (string, error) {
 	storage.Mutex.Lock()
 	defer storage.Mutex.Unlock()
 
@@ -81,16 +85,16 @@ func (storage *MemStorage) GetAllMetrics() string {
 	for name, val := range storage.counters {
 		result += fmt.Sprintf("%s: %d\n", name, val)
 	}
-	return result
+	return result, nil
 }
 
-func (storage *MemStorage) GetAllMetricsSlice() []repositories.Metrics {
+func (storage *MemStorage) GetAllMetricsSlice(ctx context.Context) ([]repositories.Metric, error) {
 	storage.Mutex.Lock()
 	defer storage.Mutex.Unlock()
 
-	result := make([]repositories.Metrics, 0)
+	result := make([]repositories.Metric, 0)
 	for name, value := range storage.gauges {
-		metric := repositories.Metrics{
+		metric := repositories.Metric{
 			ID:    name,
 			MType: "gauge",
 			Value: &value,
@@ -98,17 +102,17 @@ func (storage *MemStorage) GetAllMetricsSlice() []repositories.Metrics {
 		result = append(result, metric)
 	}
 	for name, delta := range storage.counters {
-		metric := repositories.Metrics{
+		metric := repositories.Metric{
 			ID:    name,
 			MType: "counter",
 			Delta: &delta,
 		}
 		result = append(result, metric)
 	}
-	return result
+	return result, nil
 }
 
-func (storage *MemStorage) AddMetricsFromSlice(metrics []repositories.Metrics) error {
+func (storage *MemStorage) AddMetricsFromSlice(ctx context.Context, metrics []repositories.Metric) error {
 	if metrics == nil {
 		return nil
 	}
@@ -118,12 +122,18 @@ func (storage *MemStorage) AddMetricsFromSlice(metrics []repositories.Metrics) e
 			if metric.Value == nil {
 				return fmt.Errorf("invalid metric, value of gauge metric is nil")
 			}
-			storage.AddGauge(metric.ID, *metric.Value)
+			err := storage.AddGauge(ctx, metric.ID, *metric.Value)
+			if err != nil {
+				return fmt.Errorf("add gauge error: %f", err)
+			}
 		} else if metric.MType == "counter" {
 			if metric.Delta == nil {
 				return fmt.Errorf("invalid metric, delta of counter metric is nil")
 			}
-			storage.AddCounter(metric.ID, *metric.Delta)
+			err := storage.AddCounter(ctx, metric.ID, *metric.Delta)
+			if err != nil {
+				return fmt.Errorf("add counter error: %f", err)
+			}
 		} else {
 			return fmt.Errorf("invalid metric, undefined type of metric: %s", metric.MType)
 		}
@@ -131,15 +141,8 @@ func (storage *MemStorage) AddMetricsFromSlice(metrics []repositories.Metrics) e
 	return nil
 }
 
-func (storage *MemStorage) GetCounters() map[string]int64 {
-	storage.Mutex.Lock()
-	defer storage.Mutex.Unlock()
-	return storage.counters
-}
-func (storage *MemStorage) GetGauges() map[string]float64 {
-	storage.Mutex.Lock()
-	defer storage.Mutex.Unlock()
-	return storage.gauges
+func (storage *MemStorage) Bootstrap(ctx context.Context) error {
+	return nil
 }
 
 // Хранилище метрик -----------------------------------------------------------------------------------------

@@ -29,9 +29,9 @@ func (c *CompressWriter) Write(p []byte) (int, error) {
 }
 
 func (c *CompressWriter) WriteHeader(statusCode int) {
-	if statusCode < 300 {
-		c.w.Header().Set("Content-Encoding", "gzip")
-	}
+	// Устанавливаю заголовок о том, что данные сжаты, в основном на случай, когда в теле ответа будет содержаться ошибка
+	// и агенту нужно будет корректно распаковать полученное от сервера тело с ошибкой
+	c.w.Header().Set("Content-Encoding", "gzip")
 	c.w.WriteHeader(statusCode)
 }
 

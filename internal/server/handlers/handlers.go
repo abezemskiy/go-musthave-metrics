@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"html/template"
 	"io"
@@ -41,13 +42,27 @@ func OtherRequest(res http.ResponseWriter, req *http.Request) {
 func GetGlobal(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
 	res.Header().Set("Content-Type", "text/html")
 	res.WriteHeader(http.StatusOK)
-	metrics := storage.GetAllMetrics()
+	metrics, err := storage.GetAllMetrics(req.Context())
+	if err != nil {
+		logger.ServerLog.Error("get all metrics error in GetGlobal handler", zap.String("error", error.Error(err)))
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	if err := tmpl.Execute(res, metrics); err != nil {
 		logger.ServerLog.Error("template execute error in GetGlobal handler", zap.String("error", error.Error(err)))
 		res.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+}
+
+func PingDatabase(res http.ResponseWriter, req *http.Request, db *sql.DB) {
+	if err := db.PingContext(req.Context()); err != nil {
+		logger.ServerLog.Error("fail to ping database", zap.String("error", error.Error(err)))
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	res.WriteHeader(http.StatusOK)
 }
 
 func GetMetricJSON(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
@@ -57,7 +72,7 @@ func GetMetricJSON(res http.ResponseWriter, req *http.Request, storage repositor
 
 	defer req.Body.Close()
 
-	var metrics repositories.Metrics
+	var metrics repositories.Metric
 	if err := json.NewDecoder(req.Body).Decode(&metrics); err != nil {
 		logger.ServerLog.Error("In GetMetricJSON decode body error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
 		http.Error(res, err.Error(), http.StatusBadRequest)
@@ -67,9 +82,9 @@ func GetMetricJSON(res http.ResponseWriter, req *http.Request, storage repositor
 	metricType := metrics.MType
 	metricName := metrics.ID
 
-	value, err := storage.GetMetric(metricType, metricName)
+	value, err := storage.GetMetric(req.Context(), metricType, metricName)
 	if err != nil {
-		res.WriteHeader(http.StatusNotFound)
+		http.Error(res, err.Error(), http.StatusNotFound)
 		return
 	}
 
@@ -105,13 +120,16 @@ func GetMetricJSON(res http.ResponseWriter, req *http.Request, storage repositor
 }
 
 func GetMetric(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
+	logger.ServerLog.Debug("in GetMetric handler", zap.String("address", req.URL.String()))
+
 	res.Header().Set("Content-Type", "text/plan")
 	metricType := chi.URLParam(req, "metricType")
 	metricName := chi.URLParam(req, "metricName")
 
-	value, err := storage.GetMetric(metricType, metricName)
+	value, err := storage.GetMetric(req.Context(), metricType, metricName)
 	if err != nil {
-		res.WriteHeader(http.StatusNotFound)
+		logger.ServerLog.Error("get metric error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
+		http.Error(res, err.Error(), http.StatusNotFound)
 		return
 	}
 	res.WriteHeader(http.StatusOK)
@@ -126,6 +144,51 @@ func GetMetric(res http.ResponseWriter, req *http.Request, storage repositories.
 	}
 }
 
+// Фнукция для обновления метрик через json батч, который является слайсом метрик
+func UpdateMetricsBatch(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
+	// Проверка на nil для storage
+	if storage == nil {
+		http.Error(res, "Storage not initialized", http.StatusInternalServerError)
+		return
+	}
+
+	res.Header().Set("Content-Type", "application/json")
+
+	metrics := make([]repositories.Metric, 0)
+
+	if err := json.NewDecoder(req.Body).Decode(&metrics); err != nil {
+		logger.ServerLog.Error("Decode message error", zap.String("address", req.URL.String()))
+		http.Error(res, "Decode message error", http.StatusInternalServerError)
+		return
+	}
+
+	err := storage.AddMetricsFromSlice(req.Context(), metrics)
+	if err != nil {
+		logger.ServerLog.Error("add metric into server error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	logger.ServerLog.Debug("Successful decode metrcic from json", zap.String("address: ", req.URL.String()))
+
+	bodyDebug, _ := io.ReadAll(req.Body)
+	logger.ServerLog.Debug("message before compress", zap.String("bytes: ", string(bodyDebug)))
+
+	res.WriteHeader(http.StatusOK)
+
+	enc := json.NewEncoder(res)
+	if err := enc.Encode(metrics); err != nil {
+		logger.ServerLog.Error("error encoding response", zap.String("error", error.Error(err)))
+		return
+	}
+
+	logger.ServerLog.Debug("successful write encode data to answer message in UpdateMetricsBatch")
+
+	logger.ServerLog.Debug("server answer is", zap.String("Content-Encoding", res.Header().Get("Content-Encoding")),
+		zap.String("Status-Code", res.Header().Get("Status-Code")),
+		zap.String("Content-Type", res.Header().Get("Content-Type")))
+}
+
 // Фнукция для обновления метрик через json
 // Благодаря использованию роутера chi в этот хэндлер будут попадать только запросы POST
 func UpdateMetricsJSON(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
@@ -134,11 +197,10 @@ func UpdateMetricsJSON(res http.ResponseWriter, req *http.Request, storage repos
 		http.Error(res, "Storage not initialized", http.StatusInternalServerError)
 		return
 	}
-	logger.ServerLog.Debug("Storage is not nil") //---------------------------------------------
 
 	res.Header().Set("Content-Type", "application/json")
 
-	var metrics = repositories.Metrics{}
+	var metrics = repositories.Metric{}
 
 	if err := json.NewDecoder(req.Body).Decode(&metrics); err != nil {
 		logger.ServerLog.Error("Decode message error", zap.String("address", req.URL.String()))
@@ -153,14 +215,24 @@ func UpdateMetricsJSON(res http.ResponseWriter, req *http.Request, storage repos
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		storage.AddGauge(metrics.ID, *metrics.Value)
+		err := storage.AddGauge(req.Context(), metrics.ID, *metrics.Value)
+		if err != nil {
+			logger.ServerLog.Error("add gauge error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	case "counter":
 		if metrics.Delta == nil {
 			logger.ServerLog.Error("Decode message error, delta in counter metric is nil", zap.String("address", req.URL.String()))
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		storage.AddCounter(metrics.ID, *metrics.Delta)
+		err := storage.AddCounter(req.Context(), metrics.ID, *metrics.Delta)
+		if err != nil {
+			logger.ServerLog.Error("add counter error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	default:
 		logger.ServerLog.Error("Invalid type of metric", zap.String("type", metrics.MType)) //---------------------------------------------
 		res.WriteHeader(http.StatusBadRequest)
@@ -212,14 +284,24 @@ func UpdateMetrics(res http.ResponseWriter, req *http.Request, storage repositor
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		storage.AddGauge(metricName, value)
+		err = storage.AddGauge(req.Context(), metricName, value)
+		if err != nil {
+			logger.ServerLog.Error("add gauge error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	case "counter":
 		value, err := strconv.ParseInt(metricValue, 10, 64)
 		if err != nil {
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		storage.AddCounter(metricName, value)
+		err = storage.AddCounter(req.Context(), metricName, value)
+		if err != nil {
+			logger.ServerLog.Error("add counter error", zap.String("address", req.URL.String()), zap.String("error", error.Error(err)))
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	default:
 		res.WriteHeader(http.StatusBadRequest)
 		return
@@ -231,6 +313,20 @@ func UpdateMetrics(res http.ResponseWriter, req *http.Request, storage repositor
 func GetGlobalHandler(stor repositories.ServerRepo) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		GetGlobal(res, req, stor)
+	}
+	return fn
+}
+
+func PingDatabaseHandler(db *sql.DB) http.HandlerFunc {
+	fn := func(res http.ResponseWriter, req *http.Request) {
+		PingDatabase(res, req, db)
+	}
+	return fn
+}
+
+func UpdateMetricsBatchHandler(stor repositories.ServerRepo) http.HandlerFunc {
+	fn := func(res http.ResponseWriter, req *http.Request) {
+		UpdateMetricsBatch(res, req, stor)
 	}
 	return fn
 }
