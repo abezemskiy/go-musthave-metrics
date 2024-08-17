@@ -16,14 +16,24 @@ var (
 	flagStoreInterval   int
 	flagFileStoragePath string
 	flagRestore         bool
+	flagDatabaseDsn     string
 )
 
-func parseFlags() {
+const (
+	SAVEINRAM = iota
+	SAVEINFILE
+	SAVEINDATABASE
+)
+
+func parseFlags() int {
 	flag.StringVar(&flagNetAddr, "a", ":8080", "address and port to run server")
 	flag.StringVar(&flagLogLevel, "l", "info", "log level")
+	// настройка флагов для хранения метрик в файле
 	flagStoreIntervalTemp := flag.Int("i", 300, "interval of saving metrics to the file")
-	flag.StringVar(&flagFileStoragePath, "f", "./metrics.json", "path address to saving metrics file")
+	flag.StringVar(&flagFileStoragePath, "f", "", "path address to saving metrics file") // Путь к файлу по умолчанию: ./metrics.json
 	flagRestoreTemp := flag.Bool("r", true, "for define needed of loading metrics from file while server starting")
+	// настройка флагов для хранения метрик в базе данных
+	flag.StringVar(&flagDatabaseDsn, "d", "", "database connection address") // host=localhost user=metrics password=metrics dbname=metricsdb  sslmode=disable
 
 	flag.Parse()
 	flagStoreInterval = *flagStoreIntervalTemp
@@ -55,8 +65,18 @@ func parseFlags() {
 		}
 		flagRestore = r
 	}
+	if envDatabaseDsn := os.Getenv("DATABASE_DSN"); envDatabaseDsn != "" {
+		flagDatabaseDsn = envDatabaseDsn
+	}
 
 	saver.SetStoreInterval(time.Duration(flagStoreInterval))
 	saver.SetFilestoragePath(flagFileStoragePath)
 	saver.SetRestore(flagRestore)
+	
+	if flagDatabaseDsn != ""{
+		return SAVEINDATABASE
+	}else if flagFileStoragePath != ""{
+		return SAVEINFILE
+	}
+	return SAVEINRAM
 }

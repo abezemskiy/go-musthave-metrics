@@ -32,7 +32,7 @@ type MetricsStats struct {
 
 // CollectMetrics собирает метрики
 func (metrics *MetricsStats) CollectMetrics() {
-	metrics.PollCount++
+	metrics.PollCount = 1
 	runtime.ReadMemStats(&metrics.MemStats)
 }
 

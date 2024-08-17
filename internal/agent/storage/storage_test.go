@@ -21,11 +21,7 @@ func TestCollectMetrics(t *testing.T) {
 		},
 		{name: "Counter test #2",
 			arg:  metrics,
-			want: 2,
-		},
-		{name: "Counter test #3",
-			arg:  metrics,
-			want: 3,
+			want: 1,
 		},
 	}
 	for _, tt := range tests {
