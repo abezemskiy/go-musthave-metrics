@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/hasher"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/saver"
 )
 
@@ -17,6 +18,7 @@ var (
 	flagFileStoragePath string
 	flagRestore         bool
 	flagDatabaseDsn     string
+	flagKey             string
 )
 
 const (
@@ -34,6 +36,7 @@ func parseFlags() int {
 	flagRestoreTemp := flag.Bool("r", true, "for define needed of loading metrics from file while server starting")
 	// настройка флагов для хранения метрик в базе данных
 	flag.StringVar(&flagDatabaseDsn, "d", "", "database connection address") // host=localhost user=metrics password=metrics dbname=metricsdb  sslmode=disable
+	flag.StringVar(&flagKey, "k", "", "key for hashing data")
 
 	flag.Parse()
 	flagStoreInterval = *flagStoreIntervalTemp
@@ -68,14 +71,18 @@ func parseFlags() int {
 	if envDatabaseDsn := os.Getenv("DATABASE_DSN"); envDatabaseDsn != "" {
 		flagDatabaseDsn = envDatabaseDsn
 	}
+	if envKey := os.Getenv("KEY"); envKey != "" {
+		flagKey = envKey
+	}
 
 	saver.SetStoreInterval(time.Duration(flagStoreInterval))
 	saver.SetFilestoragePath(flagFileStoragePath)
 	saver.SetRestore(flagRestore)
-	
-	if flagDatabaseDsn != ""{
+	hasher.SetKey(flagKey)
+
+	if flagDatabaseDsn != "" {
 		return SAVEINDATABASE
-	}else if flagFileStoragePath != ""{
+	} else if flagFileStoragePath != "" {
 		return SAVEINFILE
 	}
 	return SAVEINRAM
