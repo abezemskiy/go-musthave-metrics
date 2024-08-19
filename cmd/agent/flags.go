@@ -8,14 +8,15 @@ import (
 	"time"
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/handlers"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/hasher"
 )
 
-var flagNetAddr string
-
 var (
+	flagNetAddr    string
 	reportInterval *int
 	pollInterval   *int
 	flagLogLevel   string
+	flagKey        string
 )
 
 func parseFlags() {
@@ -24,6 +25,7 @@ func parseFlags() {
 	reportInterval = flag.Int("r", 10, "report interval")
 	pollInterval = flag.Int("p", 2, "poll interval")
 	flag.StringVar(&flagLogLevel, "l", "info", "log level")
+	flag.StringVar(&flagKey, "k", "", "key for hashing data")
 
 	flag.Parse()
 
@@ -50,7 +52,11 @@ func parseFlags() {
 	if envLogLevel := os.Getenv("AGENT_LOG_LEVEL"); envLogLevel != "" {
 		flagLogLevel = envLogLevel
 	}
+	if envKey := os.Getenv("KEY"); envKey != "" {
+		flagKey = envKey
+	}
 
 	handlers.SetReportInterval(time.Duration(*reportInterval))
 	handlers.SetPollInterval(time.Duration(*pollInterval))
+	hasher.SetKey(flagKey)
 }

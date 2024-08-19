@@ -41,7 +41,11 @@ func OtherRequest(res http.ResponseWriter, req *http.Request) {
 
 func GetGlobal(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
 	res.Header().Set("Content-Type", "text/html")
-	res.WriteHeader(http.StatusOK)
+
+	// устанавливаю заголовок таким образом вместо WriteHeader(http.StatusOK), потому что
+	// далее в методе Write в middleware необходимо установить заголовок Hash со значением хэша,
+	// а после WriteHeader заголовки уже не устанавливаются
+	res.Header().Set("Status-Code", "200")
 	metrics, err := storage.GetAllMetrics(req.Context())
 	if err != nil {
 		logger.ServerLog.Error("get all metrics error in GetGlobal handler", zap.String("error", error.Error(err)))
@@ -111,7 +115,10 @@ func GetMetricJSON(res http.ResponseWriter, req *http.Request, storage repositor
 		return
 	}
 
-	res.WriteHeader(http.StatusOK)
+	// устанавливаю заголовок таким образом вместо WriteHeader(http.StatusOK), потому что
+	// далее в методе Write в middleware необходимо установить заголовок Hash со значением хэша,
+	// а после WriteHeader заголовки уже не устанавливаются
+	res.Header().Set("Status-Code", "200")
 	enc := json.NewEncoder(res)
 	if err := enc.Encode(metrics); err != nil {
 		logger.ServerLog.Error("error encoding response", zap.String("error", error.Error(err)))
@@ -132,7 +139,10 @@ func GetMetric(res http.ResponseWriter, req *http.Request, storage repositories.
 		http.Error(res, err.Error(), http.StatusNotFound)
 		return
 	}
-	res.WriteHeader(http.StatusOK)
+	// устанавливаю заголовок таким образом вместо WriteHeader(http.StatusOK), потому что
+	// далее в методе Write в middleware необходимо установить заголовок Hash со значением хэша,
+	// а после WriteHeader заголовки уже не устанавливаются
+	res.Header().Set("Status-Code", "200")
 
 	n, err := res.Write([]byte(value))
 	if err != nil {
@@ -174,7 +184,10 @@ func UpdateMetricsBatch(res http.ResponseWriter, req *http.Request, storage repo
 	bodyDebug, _ := io.ReadAll(req.Body)
 	logger.ServerLog.Debug("message before compress", zap.String("bytes: ", string(bodyDebug)))
 
-	res.WriteHeader(http.StatusOK)
+	// устанавливаю заголовок таким образом вместо WriteHeader(http.StatusOK), потому что
+	// далее в методе Write в middleware необходимо установить заголовок Hash со значением хэша,
+	// а после WriteHeader заголовки уже не устанавливаются
+	res.Header().Set("Status-Code", "200")
 
 	enc := json.NewEncoder(res)
 	if err := enc.Encode(metrics); err != nil {
@@ -186,7 +199,8 @@ func UpdateMetricsBatch(res http.ResponseWriter, req *http.Request, storage repo
 
 	logger.ServerLog.Debug("server answer is", zap.String("Content-Encoding", res.Header().Get("Content-Encoding")),
 		zap.String("Status-Code", res.Header().Get("Status-Code")),
-		zap.String("Content-Type", res.Header().Get("Content-Type")))
+		zap.String("Content-Type", res.Header().Get("Content-Type")),
+		zap.String("HashSHA256", res.Header().Get("HashSHA256")))
 }
 
 // Фнукция для обновления метрик через json
@@ -243,7 +257,10 @@ func UpdateMetricsJSON(res http.ResponseWriter, req *http.Request, storage repos
 	bodyDebug, _ := io.ReadAll(req.Body)
 	logger.ServerLog.Debug("message before compress", zap.String("bytes: ", string(bodyDebug)))
 
-	res.WriteHeader(http.StatusOK)
+	// устанавливаю заголовок таким образом вместо WriteHeader(http.StatusOK), потому что
+	// далее в методе Write в middleware необходимо установить заголовок Hash со значением хэша,
+	// а после WriteHeader заголовки уже не устанавливаются
+	res.Header().Set("Status-Code", "200")
 
 	enc := json.NewEncoder(res)
 	if err := enc.Encode(metrics); err != nil {
@@ -255,6 +272,7 @@ func UpdateMetricsJSON(res http.ResponseWriter, req *http.Request, storage repos
 
 	logger.ServerLog.Debug("server answer is", zap.String("Content-Encoding", res.Header().Get("Content-Encoding")),
 		zap.String("Status-Code", res.Header().Get("Status-Code")),
+		zap.String("HashSHA256", res.Header().Get("HashSHA256")),
 		zap.String("Content-Type", res.Header().Get("Content-Type")))
 }
 
