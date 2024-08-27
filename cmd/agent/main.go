@@ -27,18 +27,16 @@ func run(metrics *storage.MetricsStats) error {
 	if err := logger.Initialize(flagLogLevel); err != nil {
 		return err
 	}
-
-	logger.AgentLog.Info("Running agent", zap.String("address", flagNetAddr))
-	go handlers.CollectMetricsTimer(metrics)
-	time.Sleep(50 * time.Millisecond)
-	//handlers.PushMetricsTimer("http://"+flagNetAddr, "updates/", metrics)
-
 	// Добавляю многопоточность
-	// Размер буферизованного канала равен количеству количеству одновременно исходящих запросов
 	var wg sync.WaitGroup
 
+	logger.AgentLog.Info("Running agent", zap.String("address", flagNetAddr), zap.String("rateLimit", fmt.Sprintf("%d", *rateLimit)))
+	go handlers.CollectMetricsTimer(metrics, &wg)
+	time.Sleep(50 * time.Millisecond)
+
+	// Размер буферизованного канала равен количеству количеству одновременно исходящих запросов
 	var pushTasks = make(chan handlers.Task, *rateLimit)
-	go GeneratePushTasks(pushTasks, "http://"+flagNetAddr, "updates/", metrics)
+	go GeneratePushTasks(pushTasks, "http://"+flagNetAddr, "updates/", metrics, &wg)
 
 	// создаю и запускаю воркеры, это и есть пул
 	for w := 0; w < *rateLimit; w++ {
@@ -46,13 +44,13 @@ func run(metrics *storage.MetricsStats) error {
 		logger.AgentLog.Debug("start pushing worker", zap.String("worker", fmt.Sprintf("%d", w)))
 	}
 
-	//go func() {
 	wg.Wait()
-	//}()
 	return nil
 }
 
-func GeneratePushTasks(tasks chan<- handlers.Task, address, action string, metrics *storage.MetricsStats) {
+func GeneratePushTasks(tasks chan<- handlers.Task, address, action string, metrics *storage.MetricsStats, wg *sync.WaitGroup) {
+	wg.Add(1)
+	defer wg.Done()
 	defer close(tasks)
 
 	sleepInterval := handlers.GetReportInterval() * time.Second

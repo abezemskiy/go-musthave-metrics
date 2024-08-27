@@ -55,7 +55,10 @@ func SyncCollectMetrics(metrics *storage.MetricsStats) {
 }
 
 // CollectMetricsTimer запускает сбор метрик с интервалом
-func CollectMetricsTimer(metrics *storage.MetricsStats) {
+func CollectMetricsTimer(metrics *storage.MetricsStats, wg *sync.WaitGroup) {
+	wg.Add(1)
+	defer wg.Done()
+
 	sleepInterval := GetPollInterval() * time.Second
 	for {
 		SyncCollectMetrics(metrics)
@@ -402,7 +405,6 @@ type Task struct {
 	address string
 	action  string
 	metrics *storage.MetricsStats
-	//client       *resty.Client
 	pushFunction PushFunction
 }
 
@@ -432,17 +434,3 @@ func PushWorker(pushTasks <-chan Task, wg *sync.WaitGroup) {
 		pushTask.DoPush()
 	}
 }
-
-// // PushMetricsTimer запускает отправку метрик с интервалом
-// func PushMetricsTimer(address, action string, metrics *storage.MetricsStats) {
-// 	sleepInterval := GetReportInterval() * time.Second
-// 	for {
-// 		//client := resty.New()
-// 		// Добавляем middleware для обработки ответа
-// 		//client.OnAfterResponse(hasher.VerifyHashMiddleware)
-
-// 		//RetryExecPushFunction(address, action, metrics, client, PushMetricsBatch)
-// 		//logger.AgentLog.Debug("Running agent", zap.String("action", "push metrics"))
-// 		time.Sleep(sleepInterval)
-// 	}
-// }

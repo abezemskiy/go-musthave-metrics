@@ -25,9 +25,9 @@ func parseFlags() {
 
 	reportInterval = flag.Int("r", 10, "report interval")
 	pollInterval = flag.Int("p", 2, "poll interval")
-	flag.StringVar(&flagLogLevel, "l", "info", "log level")
+	flag.StringVar(&flagLogLevel, "log", "info", "log level")
 	flag.StringVar(&flagKey, "k", "", "key for hashing data")
-	rateLimit = flag.Int("lim", 1, "count of concurrent messages to server")
+	rateLimit = flag.Int("l", 1, "count of concurrent messages to server")
 
 	flag.Parse()
 
