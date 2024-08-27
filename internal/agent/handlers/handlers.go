@@ -49,8 +49,6 @@ func GetReportInterval() time.Duration {
 
 // CollectMetrics собирает метрики
 func SyncCollectMetrics(metrics *storage.MetricsStats) {
-	metrics.Lock()
-	defer metrics.Unlock()
 	metrics.CollectMetrics()
 }
 
