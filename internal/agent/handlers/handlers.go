@@ -10,10 +10,12 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/compress"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/hasher"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/logger"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/storage"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
@@ -47,13 +49,14 @@ func GetReportInterval() time.Duration {
 
 // CollectMetrics собирает метрики
 func SyncCollectMetrics(metrics *storage.MetricsStats) {
-	metrics.Lock()
-	defer metrics.Unlock()
 	metrics.CollectMetrics()
 }
 
 // CollectMetricsTimer запускает сбор метрик с интервалом
-func CollectMetricsTimer(metrics *storage.MetricsStats) {
+func CollectMetricsTimer(metrics *storage.MetricsStats, wg *sync.WaitGroup) {
+	wg.Add(1)
+	defer wg.Done()
+
 	sleepInterval := GetPollInterval() * time.Second
 	for {
 		SyncCollectMetrics(metrics)
@@ -112,11 +115,22 @@ func PushJSON(address, action, typeMetric, nameMetric, valueMetric string, clien
 		return err
 	}
 
+	// Подписываю данные отправляемые на сервер
+	// Делаю не через middleware, чтобы агент подписывал именно нескомпресированный ответ
+	hash, err := repositories.CalkHash(bufEncode.Bytes(), hasher.GetKey())
+	if err != nil {
+		logger.AgentLog.Error("Fail to calc hash ", zap.String("error", error.Error(err)))
+		return err
+	}
+	logger.AgentLog.Debug("body and hash for forwarding to server ", zap.String("body", fmt.Sprintf("%x", bufEncode.Bytes())),
+		zap.String("hash", hash), zap.String("key", hasher.GetKey()))
+
 	url := fmt.Sprintf("%s/%s", address, action)
 	resp, err := client.R().
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Content-Encoding", "gzip").
 		SetHeader("Accept-Encoding", "gzip").
+		SetHeader("HashSHA256", hash).
 		SetBody(compressBody).
 		Post(url)
 
@@ -128,6 +142,7 @@ func PushJSON(address, action, typeMetric, nameMetric, valueMetric string, clien
 	logger.AgentLog.Debug("Get answer from server", zap.String("Content-Encoding", resp.Header().Get("Content-Encoding")),
 		zap.String("statusCode", fmt.Sprintf("%d", resp.StatusCode())),
 		zap.String("Content-Type", resp.Header().Get("Content-Type")),
+		zap.String("HashSHA256", resp.Header().Get("HashSHA256")),
 		zap.String("Content-Encoding", fmt.Sprint(resp.Header().Values("Content-Encoding"))))
 
 	if resp.StatusCode() != http.StatusOK {
@@ -218,11 +233,22 @@ func PushBatch(address, action string, metricsSlice []repositories.Metric, clien
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 
+	// Подписываю данные отправляемые на сервер
+	// Делаю не через middleware, чтобы агент подписывал именно нескомпресированный ответ
+	hash, err := repositories.CalkHash(bufEncode.Bytes(), hasher.GetKey())
+	if err != nil {
+		logger.AgentLog.Error("Fail to calc hash ", zap.String("error", error.Error(err)))
+		return err
+	}
+	logger.AgentLog.Debug("body and hash for forwarding to server ", zap.String("body", fmt.Sprintf("%x", bufEncode.Bytes())),
+		zap.String("hash", hash), zap.String("key", hasher.GetKey()))
+
 	url := fmt.Sprintf("%s/%s", address, action)
 	resp, err := client.R().
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Content-Encoding", "gzip").
 		SetHeader("Accept-Encoding", "gzip").
+		SetHeader("HashSHA256", hash).
 		SetBody(compressBody).
 		SetContext(ctx).
 		Post(url)
@@ -235,6 +261,7 @@ func PushBatch(address, action string, metricsSlice []repositories.Metric, clien
 	logger.AgentLog.Debug("Get answer from server", zap.String("Content-Encoding", resp.Header().Get("Content-Encoding")),
 		zap.String("statusCode", fmt.Sprintf("%d", resp.StatusCode())),
 		zap.String("Content-Type", resp.Header().Get("Content-Type")),
+		zap.String("HashSHA256", resp.Header().Get("HashSHA256")),
 		zap.String("Content-Encoding", fmt.Sprint(resp.Header().Values("Content-Encoding"))))
 
 	if resp.StatusCode() != http.StatusOK {
@@ -299,7 +326,11 @@ func isConnectionRefused(err error) bool {
 	if err == nil {
 		return false
 	}
-	return errors.Is(err, syscall.ECONNREFUSED) || strings.Contains(err.Error(), "dial tcp: connect: connection refused")
+	res := errors.Is(err, syscall.ECONNREFUSED) || strings.Contains(err.Error(), "dial tcp: connect: connection refused")
+	if res {
+		logger.AgentLog.Debug("error isConnectionRefused")
+	}
+	return res
 }
 
 func isDBTransportError(err error) bool {
@@ -319,7 +350,11 @@ func isDBTransportError(err error) bool {
 		strings.Contains(err.Error(), "connection does not exist") ||
 		strings.Contains(err.Error(), "connection failure") ||
 		strings.Contains(err.Error(), "SQL client unable to establish SQL connection")
-	return asPgError || asString
+	res := asPgError || asString
+	if res {
+		logger.AgentLog.Debug("error isDBTransportError")
+	}
+	return res
 }
 
 func isFileLockedError(err error) bool {
@@ -334,7 +369,11 @@ func isFileLockedError(err error) bool {
 	asString := false
 	asString = strings.Contains(err.Error(), "permission denied") ||
 		strings.Contains(err.Error(), "read-only file system")
-	return asError || asString
+	res := asError || asString
+	if res {
+		logger.AgentLog.Debug("error isFileLockedError")
+	}
+	return res
 }
 
 type PushFunction = func(string, string, *storage.MetricsStats, *resty.Client) error
@@ -360,13 +399,36 @@ func RetryExecPushFunction(address, action string, metrics *storage.MetricsStats
 	}
 }
 
-// PushMetricsTimer запускает отправку метрик с интервалом
-func PushMetricsTimer(address, action string, metrics *storage.MetricsStats) {
-	sleepInterval := GetReportInterval() * time.Second
-	for {
-		client := resty.New()
-		RetryExecPushFunction(address, action, metrics, client, PushMetricsBatch)
-		logger.AgentLog.Debug("Running agent", zap.String("action", "push metrics"))
-		time.Sleep(sleepInterval)
+type Task struct {
+	address string
+	action  string
+	metrics *storage.MetricsStats
+	pushFunction PushFunction
+}
+
+func NewTask(address, action string, metrics *storage.MetricsStats, pushFunction PushFunction) *Task {
+	return &Task{
+		address:      address,
+		action:       action,
+		metrics:      metrics,
+		pushFunction: pushFunction,
+	}
+}
+
+func (t Task) DoPush() {
+	client := resty.New()
+	// Добавляем middleware для обработки ответа
+	client.OnAfterResponse(hasher.VerifyHashMiddleware)
+
+	RetryExecPushFunction(t.address, t.action, t.metrics, client, t.pushFunction)
+	logger.AgentLog.Debug("Running agent", zap.String("action", "push metrics"))
+}
+
+func PushWorker(pushTasks <-chan Task, wg *sync.WaitGroup) {
+	wg.Add(1)
+	defer wg.Done()
+
+	for pushTask := range pushTasks {
+		pushTask.DoPush()
 	}
 }

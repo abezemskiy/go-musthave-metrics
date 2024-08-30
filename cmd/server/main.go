@@ -15,6 +15,7 @@ import (
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/compress"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/handlers"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/hasher"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/logger"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/pg"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/saver"
@@ -116,20 +117,20 @@ func MetricRouter(stor repositories.ServerRepo, db *sql.DB) chi.Router {
 		r.Get("/", logger.RequestLogger(compress.GzipMiddleware(handlers.GetGlobalHandler(stor))))
 		r.Get("/ping", logger.RequestLogger(compress.GzipMiddleware(handlers.PingDatabaseHandler(db))))
 
-		r.Post("/updates/", logger.RequestLogger(compress.GzipMiddleware(handlers.UpdateMetricsBatchHandler(stor))))
+		r.Post("/updates/", logger.RequestLogger(compress.GzipMiddleware(hasher.HashMiddleware(handlers.UpdateMetricsBatchHandler(stor)))))
 		r.Route("/update", func(r chi.Router) {
-			r.Post("/", logger.RequestLogger(compress.GzipMiddleware(handlers.UpdateMetricsJSONHandler(stor))))
-			r.Post("/{metricType}/{metricName}/{metricValue}", logger.RequestLogger(compress.GzipMiddleware(handlers.UpdateMetricsHandler(stor))))
+			r.Post("/", logger.RequestLogger(compress.GzipMiddleware(hasher.HashMiddleware(handlers.UpdateMetricsJSONHandler(stor)))))
+			r.Post("/{metricType}/{metricName}/{metricValue}", logger.RequestLogger(compress.GzipMiddleware(hasher.HashMiddleware(handlers.UpdateMetricsHandler(stor)))))
 		})
 
 		r.Route("/value", func(r chi.Router) {
-			r.Post("/", logger.RequestLogger(compress.GzipMiddleware(handlers.GetMetricJSONHandler(stor))))
+			r.Post("/", logger.RequestLogger(compress.GzipMiddleware(hasher.HashMiddleware(handlers.GetMetricJSONHandler(stor)))))
 			r.Get("/{metricType}/{metricName}", logger.RequestLogger(compress.GzipMiddleware(handlers.GetMetricHandler(stor))))
 		})
 	})
 
 	// Определяем маршрут по умолчанию для некорректных запросов
-	r.NotFound(logger.RequestLogger(compress.GzipMiddleware(handlers.OtherRequestHandler())))
+	r.NotFound(logger.RequestLogger(compress.GzipMiddleware(hasher.HashMiddleware(handlers.OtherRequestHandler()))))
 
 	return r
 }
