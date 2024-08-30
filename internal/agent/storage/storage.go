@@ -7,6 +7,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/logger"
+	"github.com/shirou/gopsutil/v4/cpu"
+	"github.com/shirou/gopsutil/v4/mem"
+	"go.uber.org/zap"
 	"golang.org/x/exp/rand"
 )
 
@@ -16,24 +20,66 @@ var AllMetrics []string
 func init() {
 	GaugeMetrics = []string{"Alloc", "BuckHashSys", "Frees", "GCCPUFraction", "GCSys", "HeapAlloc", "HeapIdle", "HeapInuse", "HeapObjects",
 		"HeapReleased", "HeapSys", "LastGC", "Lookups", "MCacheInuse", "MCacheSys", "MSpanInuse", "MSpanSys", "Mallocs", "NextGC", "NumForcedGC", "NumGC",
-		"OtherSys", "PauseTotalNs", "StackInuse", "StackSys", "Sys", "TotalAlloc"}
+		"OtherSys", "PauseTotalNs", "StackInuse", "StackSys", "Sys", "TotalAlloc", "TotalMemory", "FreeMemory", "CPUutilization1"}
 	AllMetrics = []string{"Alloc", "BuckHashSys", "Frees", "GCCPUFraction", "GCSys", "HeapAlloc", "HeapIdle", "HeapInuse", "HeapObjects",
 		"HeapReleased", "HeapSys", "LastGC", "Lookups", "MCacheInuse", "MCacheSys", "MSpanInuse", "MSpanSys", "Mallocs", "NextGC", "NumForcedGC", "NumGC",
-		"OtherSys", "PauseTotalNs", "StackInuse", "StackSys", "Sys", "TotalAlloc", "PollCount", "RandomValue"}
+		"OtherSys", "PauseTotalNs", "StackInuse", "StackSys", "Sys", "TotalAlloc", "TotalMemory", "FreeMemory", "CPUutilization1", "PollCount", "RandomValue"}
 }
 
 // MetricsStats структура для хранения метрик
 type MetricsStats struct {
 	sync.Mutex
 	runtime.MemStats
-	PollCount   int64
-	RandomValue float64
+	PollCount       int64
+	RandomValue     float64
+	TotalMemory     float64
+	FreeMemory      float64
+	CPUutilization1 float64
+}
+
+func collectExtraMetrics(ch chan<- map[string]float64) {
+	res := make(map[string]float64, 0)
+
+	v, err := mem.VirtualMemory()
+	if err == nil {
+		res["TotalMemory"] = float64(v.Total)
+		res["FreeMemory"] = float64(v.Free)
+	} else {
+		logger.AgentLog.Error("collect memory metrics error by gopsutil package", zap.String("error", err.Error()))
+	}
+
+	c, err := cpu.Percent(time.Second, true)
+	if err == nil {
+		res["CPUutilization1"] = float64(c[0])
+	} else {
+		logger.AgentLog.Error("collect cpu metrics error by gopsutil package", zap.String("error", err.Error()))
+	}
+	ch <- res
 }
 
 // CollectMetrics собирает метрики
 func (metrics *MetricsStats) CollectMetrics() {
+	// Сбор дополнительных метрик в отдельной горутине
+	extraM := make(chan map[string]float64, 1)
+	go collectExtraMetrics(extraM)
+
+	metrics.Lock()
+	defer metrics.Unlock()
+
 	metrics.PollCount = 1
 	runtime.ReadMemStats(&metrics.MemStats)
+
+	extraMetrics := <-extraM
+	for name, value := range extraMetrics {
+		switch name {
+		case "TotalMemory":
+			metrics.TotalMemory = value
+		case "FreeMemory":
+			metrics.FreeMemory = value
+		case "CPUutilization1":
+			metrics.CPUutilization1 = value
+		}
+	}
 }
 
 func GetRandomMetricName() string {
@@ -105,7 +151,14 @@ func (metrics *MetricsStats) GetMetricString(name string) (typeMetric, value str
 		return "counter", strconv.FormatUint(uint64(metrics.PollCount), 10), nil
 	case "RandomValue":
 		return metrics.GetMetricString(GetRandomMetricName())
+	case "TotalMemory":
+		return "gauge", strconv.FormatUint(uint64(metrics.TotalMemory), 10), nil
+	case "FreeMemory":
+		return "gauge", strconv.FormatUint(uint64(metrics.FreeMemory), 10), nil
+	case "CPUutilization1":
+		return "gauge", strconv.FormatUint(uint64(metrics.CPUutilization1), 10), nil
 	}
+
 	return "", "", fmt.Errorf("metric %s is not exist", name)
 }
 
