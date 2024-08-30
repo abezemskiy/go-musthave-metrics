@@ -425,7 +425,6 @@ func (t Task) DoPush() {
 }
 
 func PushWorker(pushTasks <-chan Task, wg *sync.WaitGroup) {
-	wg.Add(1)
 	defer wg.Done()
 
 	for pushTask := range pushTasks {
