@@ -57,6 +57,7 @@ func parseFlags() {
 	if envKey := os.Getenv("KEY"); envKey != "" {
 		flagKey = envKey
 	}
+
 	if envRateLimit := os.Getenv("RATE_LIMIT"); envRateLimit != "" {
 		val, err := strconv.Atoi(envRateLimit)
 		if err != nil {
