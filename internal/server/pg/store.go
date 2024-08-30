@@ -20,7 +20,7 @@ func NewStore(conn *sql.DB) *Store {
 }
 
 // Bootstrap подготавливает БД к работе, создавая необходимые таблицы и индексы
-func (s Store) Bootstrap(ctx context.Context) error {
+func (s Store) Bootstrap(ctx context.Context) (err error) {
 	// запускаем транзакцию
 	tx, err := s.conn.BeginTx(ctx, nil)
 	if err != nil {
@@ -28,8 +28,8 @@ func (s Store) Bootstrap(ctx context.Context) error {
 	}
 
 	// в случае неуспешного коммита все изменения транзакции будут отменены
-	defer func() error {
-		return tx.Rollback()
+	defer func() {
+		err = tx.Rollback()
 	}()
 
 	// создаём таблицу с метриками и необходимые индексы, если таблица ещё не существует
@@ -86,7 +86,7 @@ func (s Store) GetMetric(ctx context.Context, metricType string, metricName stri
 	return "", fmt.Errorf("whrong type of metric")
 }
 
-func (s Store) AddGauge(ctx context.Context, nameMetric string, value float64) error {
+func (s Store) AddGauge(ctx context.Context, nameMetric string, value float64) (err error) {
 	// запускаем транзакцию
 	tx, err := s.conn.BeginTx(ctx, nil)
 	if err != nil {
@@ -94,8 +94,8 @@ func (s Store) AddGauge(ctx context.Context, nameMetric string, value float64) e
 	}
 
 	// в случае неуспешного коммита все изменения транзакции будут отменены
-	defer func() error {
-		return tx.Rollback()
+	defer func() {
+		err = tx.Rollback()
 	}()
 
 	queryUpsert := `
@@ -113,7 +113,7 @@ func (s Store) AddGauge(ctx context.Context, nameMetric string, value float64) e
 	return tx.Commit()
 }
 
-func (s Store) AddCounter(ctx context.Context, nameMetric string, value int64) error {
+func (s Store) AddCounter(ctx context.Context, nameMetric string, value int64) (err error) {
 	// запускаем транзакцию
 	tx, err := s.conn.BeginTx(ctx, nil)
 	if err != nil {
@@ -121,8 +121,8 @@ func (s Store) AddCounter(ctx context.Context, nameMetric string, value int64) e
 	}
 
 	// в случае неуспешного коммита все изменения транзакции будут отменены
-	defer func() error {
-		return tx.Rollback()
+	defer func() {
+		err = tx.Rollback()
 	}()
 
 	queryUpsert := `
@@ -154,15 +154,15 @@ func (s Store) GetAllMetrics(ctx context.Context) (string, error) {
 	}
 	return result, nil
 }
-func (s Store) AddMetricsFromSlice(ctx context.Context, metrics []repositories.Metric) error {
+func (s Store) AddMetricsFromSlice(ctx context.Context, metrics []repositories.Metric) (err error) {
 	// запускаем транзакцию
 	tx, err := s.conn.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	// в случае неуспешного коммита все изменения транзакции будут отменены
-	defer func() error {
-		return tx.Rollback()
+	defer func() {
+		err = tx.Rollback()
 	}()
 
 	for _, metric := range metrics {
