@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -48,13 +49,14 @@ func GetReportInterval() time.Duration {
 
 // CollectMetrics собирает метрики
 func SyncCollectMetrics(metrics *storage.MetricsStats) {
-	metrics.Lock()
-	defer metrics.Unlock()
 	metrics.CollectMetrics()
 }
 
 // CollectMetricsTimer запускает сбор метрик с интервалом
-func CollectMetricsTimer(metrics *storage.MetricsStats) {
+func CollectMetricsTimer(metrics *storage.MetricsStats, wg *sync.WaitGroup) {
+	wg.Add(1)
+	defer wg.Done()
+
 	sleepInterval := GetPollInterval() * time.Second
 	for {
 		SyncCollectMetrics(metrics)
@@ -397,16 +399,36 @@ func RetryExecPushFunction(address, action string, metrics *storage.MetricsStats
 	}
 }
 
-// PushMetricsTimer запускает отправку метрик с интервалом
-func PushMetricsTimer(address, action string, metrics *storage.MetricsStats) {
-	sleepInterval := GetReportInterval() * time.Second
-	for {
-		client := resty.New()
-		// Добавляем нашу middleware для обработки ответа
-		client.OnAfterResponse(hasher.VerifyHashMiddleware)
+type Task struct {
+	address string
+	action  string
+	metrics *storage.MetricsStats
+	pushFunction PushFunction
+}
 
-		RetryExecPushFunction(address, action, metrics, client, PushMetricsBatch)
-		logger.AgentLog.Debug("Running agent", zap.String("action", "push metrics"))
-		time.Sleep(sleepInterval)
+func NewTask(address, action string, metrics *storage.MetricsStats, pushFunction PushFunction) *Task {
+	return &Task{
+		address:      address,
+		action:       action,
+		metrics:      metrics,
+		pushFunction: pushFunction,
+	}
+}
+
+func (t Task) DoPush() {
+	client := resty.New()
+	// Добавляем middleware для обработки ответа
+	client.OnAfterResponse(hasher.VerifyHashMiddleware)
+
+	RetryExecPushFunction(t.address, t.action, t.metrics, client, t.pushFunction)
+	logger.AgentLog.Debug("Running agent", zap.String("action", "push metrics"))
+}
+
+func PushWorker(pushTasks <-chan Task, wg *sync.WaitGroup) {
+	wg.Add(1)
+	defer wg.Done()
+
+	for pushTask := range pushTasks {
+		pushTask.DoPush()
 	}
 }

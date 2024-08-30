@@ -10,9 +10,7 @@ import (
 	"syscall"
 	"testing"
 
-	//"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/compress"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/mocks"
-	//"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/storage"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/compress"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/handlers"
