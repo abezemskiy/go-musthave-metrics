@@ -605,7 +605,7 @@ func Test_isDBTransportError(t *testing.T) {
 		},
 		{
 			name: "ConnectionDoesNotExist string",
-			arg:  fmt.Errorf(error.Error(errConnectionDoesNotExist)),
+			arg:  errConnectionDoesNotExist,
 			want: true,
 		},
 		{
@@ -615,7 +615,7 @@ func Test_isDBTransportError(t *testing.T) {
 		},
 		{
 			name: "ConnectionFailure string",
-			arg:  fmt.Errorf(error.Error(errConnectionFailure)),
+			arg:  errConnectionFailure,
 			want: true,
 		},
 		{
@@ -625,7 +625,7 @@ func Test_isDBTransportError(t *testing.T) {
 		},
 		{
 			name: "SQLClientUnableToEstablishSQLConnection",
-			arg:  fmt.Errorf(error.Error(errSQLClientUnableToEstablishSQLConnection)),
+			arg:  errSQLClientUnableToEstablishSQLConnection,
 			want: true,
 		},
 		{
@@ -635,7 +635,7 @@ func Test_isDBTransportError(t *testing.T) {
 		},
 		{
 			name: "ConnectionException",
-			arg:  fmt.Errorf(error.Error(errConnectionException)),
+			arg:  errConnectionException,
 			want: true,
 		},
 	}
@@ -675,7 +675,7 @@ func Test_isFileLockedError(t *testing.T) {
 		},
 		{
 			name: "EACCES string",
-			arg:  fmt.Errorf(error.Error(errEACCES)),
+			arg:  errEACCES,
 			want: true,
 		},
 		{
@@ -685,7 +685,7 @@ func Test_isFileLockedError(t *testing.T) {
 		},
 		{
 			name: "EROFS string",
-			arg:  fmt.Errorf(error.Error(errEROFS)),
+			arg:  errEROFS,
 			want: true,
 		},
 		{
@@ -695,7 +695,7 @@ func Test_isFileLockedError(t *testing.T) {
 		},
 		{
 			name: "Permission string",
-			arg:  fmt.Errorf(error.Error(errPermission)),
+			arg:  errPermission,
 			want: true,
 		},
 	}
