@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/logger"
 )
 
 // Store реализует интерфейс store.Store и позволяет взаимодействовать с СУБД PostgreSQL
@@ -47,6 +48,32 @@ func (s Store) Bootstrap(ctx context.Context) (err error) {
 	_, errExec = tx.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS id ON metrics (id)`)
 	if errExec != nil {
 		return errExec
+	}
+
+	// коммитим транзакцию
+	return tx.Commit()
+}
+
+// Очищает БД, удаляя записи из таблиц
+// необходима для тестирования, чтобы в процессе удалять тестовые записи
+func (s Store) Disable(ctx context.Context) (err error) {
+	logger.ServerLog.Debug("truncate all data in all tables")
+
+	// запускаем транзакцию
+	tx, err := s.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	// в случае неуспешного коммита все изменения транзакции будут отменены
+	defer tx.Rollback()
+
+	// удаляю все записи в таблице auth
+	_, err = tx.ExecContext(ctx, `
+			TRUNCATE TABLE metrics 
+	`)
+	if err != nil {
+		return err
 	}
 
 	// коммитим транзакцию
