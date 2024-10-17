@@ -29,9 +29,7 @@ func (s Store) Bootstrap(ctx context.Context) (err error) {
 	}
 
 	// в случае неуспешного коммита все изменения транзакции будут отменены
-	defer func() {
-		err = tx.Rollback()
-	}()
+	defer tx.Rollback()
 
 	// создаём таблицу с метриками и необходимые индексы, если таблица ещё не существует
 	_, errExec := tx.ExecContext(ctx, `
@@ -121,9 +119,7 @@ func (s Store) AddGauge(ctx context.Context, nameMetric string, value float64) (
 	}
 
 	// в случае неуспешного коммита все изменения транзакции будут отменены
-	defer func() {
-		err = tx.Rollback()
-	}()
+	defer tx.Rollback()
 
 	queryUpsert := `
 				INSERT INTO metrics (id, mtype, value)
@@ -148,9 +144,7 @@ func (s Store) AddCounter(ctx context.Context, nameMetric string, value int64) (
 	}
 
 	// в случае неуспешного коммита все изменения транзакции будут отменены
-	defer func() {
-		err = tx.Rollback()
-	}()
+	defer tx.Rollback()
 
 	queryUpsert := `
 				INSERT INTO metrics (id, mtype, delta)
@@ -188,9 +182,7 @@ func (s Store) AddMetricsFromSlice(ctx context.Context, metrics []repositories.M
 		return err
 	}
 	// в случае неуспешного коммита все изменения транзакции будут отменены
-	defer func() {
-		err = tx.Rollback()
-	}()
+	defer tx.Rollback()
 
 	for _, metric := range metrics {
 
