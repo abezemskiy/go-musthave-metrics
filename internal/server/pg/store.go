@@ -87,10 +87,15 @@ func (s Store) GetMetric(ctx context.Context, metricType string, metricName stri
 		FROM metrics
 		WHERE id = $1
 	`
-	row := s.conn.QueryRowContext(ctx, query, metricName)
+	stmt, err := s.conn.PrepareContext(ctx, query)
+	if err != nil {
+		return "", fmt.Errorf("prepare context error in DB, %w", err)
+	}
+	defer stmt.Close()
+	row := stmt.QueryRowContext(ctx, metricName)
 
 	var metric repositories.Metric
-	err := row.Scan(&metric.ID, &metric.MType, &metric.Delta, &metric.Value)
+	err = row.Scan(&metric.ID, &metric.MType, &metric.Delta, &metric.Value)
 	if err != nil {
 		return "", err
 	}
@@ -112,52 +117,35 @@ func (s Store) GetMetric(ctx context.Context, metricType string, metricName stri
 }
 
 func (s Store) AddGauge(ctx context.Context, nameMetric string, value float64) (err error) {
-	// запускаем транзакцию
-	tx, err := s.conn.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	// в случае неуспешного коммита все изменения транзакции будут отменены
-	defer tx.Rollback()
-
 	queryUpsert := `
 				INSERT INTO metrics (id, mtype, value)
 				VALUES ($1, $2, $3)
 				ON CONFLICT (id) 
 				DO UPDATE SET value = EXCLUDED.value;
 				`
-	_, err = tx.ExecContext(ctx, queryUpsert, nameMetric, "gauge", value)
+	stmt, err := s.conn.PrepareContext(ctx, queryUpsert)
 	if err != nil {
-		return err
+		return fmt.Errorf("prepare context error in DB, %w", err)
 	}
-
-	// коммитим транзакцию
-	return tx.Commit()
+	defer stmt.Close()
+	_, err = stmt.ExecContext(ctx, nameMetric, "gauge", value)
+	return err
 }
 
 func (s Store) AddCounter(ctx context.Context, nameMetric string, value int64) (err error) {
-	// запускаем транзакцию
-	tx, err := s.conn.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	// в случае неуспешного коммита все изменения транзакции будут отменены
-	defer tx.Rollback()
-
 	queryUpsert := `
 				INSERT INTO metrics (id, mtype, delta)
 				VALUES ($1, $2, $3)
 				ON CONFLICT (id) 
 				DO UPDATE SET delta = metrics.delta + EXCLUDED.delta;
 				`
-	_, err = tx.ExecContext(ctx, queryUpsert, nameMetric, "counter", value)
+	stmt, err := s.conn.PrepareContext(ctx, queryUpsert)
 	if err != nil {
-		return err
+		return fmt.Errorf("prepare context error in DB, %w", err)
 	}
-	// коммитим транзакцию
-	return tx.Commit()
+	defer stmt.Close()
+	_, err = stmt.ExecContext(ctx, nameMetric, "counter", value)
+	return err
 }
 
 func (s Store) GetAllMetrics(ctx context.Context) (string, error) {
@@ -193,7 +181,12 @@ func (s Store) AddMetricsFromSlice(ctx context.Context, metrics []repositories.M
 				ON CONFLICT (id) 
 				DO UPDATE SET value = EXCLUDED.value;
 				`
-			_, err = tx.ExecContext(ctx, queryUpsert, metric.ID, "gauge", metric.Value)
+			stmt, err := tx.PrepareContext(ctx, queryUpsert)
+			if err != nil {
+				return fmt.Errorf("prepare context error in DB, %w", err)
+			}
+			defer stmt.Close()
+			_, err = stmt.ExecContext(ctx, metric.ID, "gauge", metric.Value)
 			if err != nil {
 				return err
 			}
@@ -204,7 +197,12 @@ func (s Store) AddMetricsFromSlice(ctx context.Context, metrics []repositories.M
 					ON CONFLICT (id) 
 					DO UPDATE SET delta = metrics.delta + EXCLUDED.delta;
 					`
-			_, err = tx.ExecContext(ctx, queryUpsert, metric.ID, "counter", metric.Delta)
+			stmt, err := tx.PrepareContext(ctx, queryUpsert)
+			if err != nil {
+				return fmt.Errorf("prepare context error in DB, %w", err)
+			}
+			defer stmt.Close()
+			_, err = stmt.ExecContext(ctx, metric.ID, "counter", metric.Delta)
 			if err != nil {
 				return err
 			}
@@ -218,10 +216,16 @@ func (s Store) AddMetricsFromSlice(ctx context.Context, metrics []repositories.M
 func (s Store) GetAllMetricsSlice(ctx context.Context) ([]repositories.Metric, error) {
 	metrics := make([]repositories.Metric, 0)
 
-	rows, err := s.conn.QueryContext(ctx, "SELECT id, mtype, delta, value FROM metrics")
+	stmt, err := s.conn.PrepareContext(ctx, "SELECT id, mtype, delta, value FROM metrics")
+	if err != nil {
+		return nil, fmt.Errorf("prepare context error in DB, %w", err)
+	}
+	defer stmt.Close()
+	rows, err := stmt.QueryContext(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 	for rows.Next() {
 		var metric repositories.Metric

@@ -286,7 +286,7 @@ func TestMusthaveMetrics(t *testing.T) {
 	time.Sleep(2 * time.Second) // Жду 2 секунды для запуска сервиса
 
 	// создаём файл журнала профилирования памяти
-	fmem, err := os.Create(`./../../profiles/base.pprof`)
+	fmem, err := os.Create(`./../../profiles/result.pprof`)
 	if err != nil {
 		panic(err)
 	}
