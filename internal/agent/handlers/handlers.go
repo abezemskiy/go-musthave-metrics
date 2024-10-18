@@ -14,15 +14,16 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-resty/resty/v2"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
+	"go.uber.org/zap"
+
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/compress"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/hasher"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/logger"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/storage"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
-	"github.com/go-resty/resty/v2"
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5/pgconn"
-	"go.uber.org/zap"
 )
 
 var (
@@ -400,9 +401,9 @@ func RetryExecPushFunction(address, action string, metrics *storage.MetricsStats
 }
 
 type Task struct {
-	address string
-	action  string
-	metrics *storage.MetricsStats
+	address      string
+	action       string
+	metrics      *storage.MetricsStats
 	pushFunction PushFunction
 }
 

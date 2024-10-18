@@ -9,10 +9,11 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/logger"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
+
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/logger"
 )
 
 var (

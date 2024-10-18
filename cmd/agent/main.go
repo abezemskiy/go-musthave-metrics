@@ -6,10 +6,11 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/handlers"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/logger"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/storage"
-	"go.uber.org/zap"
 )
 
 func main() {

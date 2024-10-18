@@ -14,15 +14,16 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/pg"
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/saver"
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-test/deep"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/rand"
+
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/pg"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/saver"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/storage"
 )
 
 func TestOtherRequest(t *testing.T) {

@@ -7,11 +7,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/logger"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
 	"go.uber.org/zap"
 	"golang.org/x/exp/rand"
+
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/logger"
 )
 
 var GaugeMetrics []string

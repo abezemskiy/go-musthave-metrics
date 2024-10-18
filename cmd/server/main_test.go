@@ -17,11 +17,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/pg"
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/storage"
 	"github.com/go-test/deep"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/pg"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/storage"
 )
 
 func testRequest(t *testing.T, ts *httptest.Server, method, path string) *http.Response {

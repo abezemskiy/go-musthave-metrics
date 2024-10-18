@@ -8,9 +8,10 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/logger"
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
+
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/logger"
 )
 
 var key string
@@ -82,7 +83,7 @@ func VerifyHashMiddleware(c *resty.Client, resp *resty.Response) error {
 		return errors.New("missing HashSHA256 header in the response")
 	}
 	// Логирование заголовка
-	logger.AgentLog.Debug("Received HashSHA256 header and body", zap.String("header", serverHash), zap.String("body", fmt.Sprintf("%x",bodyBytes)))
+	logger.AgentLog.Debug("Received HashSHA256 header and body", zap.String("header", serverHash), zap.String("body", fmt.Sprintf("%x", bodyBytes)))
 
 	serverHashBytes, err := hex.DecodeString(serverHash)
 

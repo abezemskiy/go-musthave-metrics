@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/logger"
 	"go.uber.org/zap"
+
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/logger"
 )
 
 func CalkHash(body []byte, key string) (string, error) {
@@ -51,13 +52,13 @@ func CheckHash(body []byte, wantHash, key string) error {
 // HashWriter реализует интерфейс http.ResponseWriter и позволяет прозрачно для сервера
 // получить тело ответа для последующей подписи, если на сервере задан ключ
 type HashWriter struct {
-	w http.ResponseWriter
+	w   http.ResponseWriter
 	key string
 }
 
 func NewHashWriter(w http.ResponseWriter, key string) *HashWriter {
 	return &HashWriter{
-		w: w,
+		w:   w,
 		key: key,
 	}
 }
