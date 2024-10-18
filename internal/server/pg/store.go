@@ -78,6 +78,7 @@ func (s Store) Disable(ctx context.Context) (err error) {
 	return tx.Commit()
 }
 
+// Возвращает значение метрики в строчном представлении по имени и типу метрики
 func (s Store) GetMetric(ctx context.Context, metricType string, metricName string) (string, error) {
 	query := `
 		SELECT id,
