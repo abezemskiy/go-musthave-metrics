@@ -35,13 +35,11 @@ func run(metrics *storage.MetricsStats) error {
 	time.Sleep(50 * time.Millisecond)
 
 	// Размер буферизованного канала равен количеству количеству одновременно исходящих запросов
-	pushTasks := make(chan handlers.Task, *rateLimit)
-	wg.Add(1)
+	var pushTasks = make(chan handlers.Task, *rateLimit)
 	go GeneratePushTasks(pushTasks, "http://"+flagNetAddr, "updates/", metrics, &wg)
 
 	// создаю и запускаю воркеры, это и есть пул
 	for w := 0; w < *rateLimit; w++ {
-		wg.Add(1)
 		go handlers.PushWorker(pushTasks, &wg)
 		logger.AgentLog.Debug("start pushing worker", zap.String("worker", fmt.Sprintf("%d", w)))
 	}
@@ -51,6 +49,7 @@ func run(metrics *storage.MetricsStats) error {
 }
 
 func GeneratePushTasks(tasks chan<- handlers.Task, address, action string, metrics *storage.MetricsStats, wg *sync.WaitGroup) {
+	wg.Add(1)
 	defer wg.Done()
 	defer close(tasks)
 

@@ -21,7 +21,7 @@ func NewStore(conn *sql.DB) *Store {
 }
 
 // Bootstrap подготавливает БД к работе, создавая необходимые таблицы и индексы
-func (s Store) Bootstrap(ctx context.Context) (err error) {
+func (s Store) Bootstrap(ctx context.Context) error {
 	// запускаем транзакцию
 	tx, err := s.conn.BeginTx(ctx, nil)
 	if err != nil {
@@ -163,7 +163,7 @@ func (s Store) GetAllMetrics(ctx context.Context) (string, error) {
 	}
 	return result, nil
 }
-func (s Store) AddMetricsFromSlice(ctx context.Context, metrics []repositories.Metric) (err error) {
+func (s Store) AddMetricsFromSlice(ctx context.Context, metrics []repositories.Metric) error {
 	// запускаем транзакцию
 	tx, err := s.conn.BeginTx(ctx, nil)
 	if err != nil {
