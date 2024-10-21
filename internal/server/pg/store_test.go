@@ -8,8 +8,9 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
 	_ "github.com/jackc/pgx/v5/stdlib"
+
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

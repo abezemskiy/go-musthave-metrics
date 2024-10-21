@@ -14,15 +14,17 @@ import (
 
 var key string
 
+// SetKey - устанавливает секретный ключ для подписи данных.
 func SetKey(k string) {
 	key = k
 }
 
+// GetKey - возвращает секретный ключ для подписи данных.
 func GetKey() string {
 	return key
 }
 
-// middleware для проверки подписи и подписи данных, если установлен ключ
+// HashMiddleware - middleware для проверки подписи и подписи данных, если установлен ключ.
 func HashMiddleware(handler http.Handler) http.HandlerFunc {
 	logFn := func(res http.ResponseWriter, req *http.Request) {
 		if k := GetKey(); k == "" {

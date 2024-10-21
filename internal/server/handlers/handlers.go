@@ -1,3 +1,4 @@
+// Packet handlers contain endpoints of interaction with service.
 package handlers
 
 import (
@@ -20,6 +21,7 @@ var (
 	tmpl *template.Template
 )
 
+// Парсин шаблона для вывода всех метрик в виде html страницы.
 func init() {
 	tmpl = template.Must(template.New("example").Parse(`
         <!DOCTYPE html>
@@ -35,11 +37,13 @@ func init() {
     `))
 }
 
+// OtherRequest - обработка нераспознанных http запросов к сервису.
 func OtherRequest(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Content-Type", "text/plain")
 	res.WriteHeader(http.StatusNotFound)
 }
 
+// GetGlobal - возвращаю все хранящие на сервере метрики в виде html страницы.
 func GetGlobal(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
 	res.Header().Set("Content-Type", "text/html")
 
@@ -61,6 +65,7 @@ func GetGlobal(res http.ResponseWriter, req *http.Request, storage repositories.
 	}
 }
 
+// PingDatabase - проверка связи с базой данных.
 func PingDatabase(res http.ResponseWriter, req *http.Request, db *sql.DB) {
 	if err := db.PingContext(req.Context()); err != nil {
 		logger.ServerLog.Error("fail to ping database", zap.String("error", error.Error(err)))
@@ -70,6 +75,7 @@ func PingDatabase(res http.ResponseWriter, req *http.Request, db *sql.DB) {
 	res.WriteHeader(http.StatusOK)
 }
 
+// GetMetricJSON - возвращает метрику в json представлении.
 func GetMetricJSON(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
 	logger.ServerLog.Debug("In GetMetricJSON", zap.String("address", req.URL.String()))
 
@@ -127,6 +133,7 @@ func GetMetricJSON(res http.ResponseWriter, req *http.Request, storage repositor
 	}
 }
 
+// GetMetric - возвращает метрику в виде строки.
 func GetMetric(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
 	logger.ServerLog.Debug("in GetMetric handler", zap.String("address", req.URL.String()))
 
@@ -155,7 +162,7 @@ func GetMetric(res http.ResponseWriter, req *http.Request, storage repositories.
 	}
 }
 
-// Фнукция для обновления метрик через json батч, который является слайсом метрик
+// UpdateMetricsBatch - обновляет метрики через json батч, который является слайсом метрик.
 func UpdateMetricsBatch(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
 	// Проверка на nil для storage
 	if storage == nil {
@@ -204,8 +211,8 @@ func UpdateMetricsBatch(res http.ResponseWriter, req *http.Request, storage repo
 		zap.String("HashSHA256", res.Header().Get("HashSHA256")))
 }
 
-// Фнукция для обновления метрик через json
-// Благодаря использованию роутера chi в этот хэндлер будут попадать только запросы POST
+// UpdateMetricsJSON - для обновления метрик через json.
+// Благодаря использованию роутера chi в этот хэндлер будут попадать только запросы POST.
 func UpdateMetricsJSON(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
 	// Проверка на nil для storage
 	if storage == nil {
@@ -277,7 +284,7 @@ func UpdateMetricsJSON(res http.ResponseWriter, req *http.Request, storage repos
 		zap.String("Content-Type", res.Header().Get("Content-Type")))
 }
 
-// Благодаря использованию роутера chi в этот хэндлер будут попадать только запросы POST
+// UpdateMetrics - обновляет метрику на сервере. Параметры метрики извлекаются из http запроса.
 func UpdateMetrics(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
 
 	// Проверка на nil для storage
@@ -329,6 +336,7 @@ func UpdateMetrics(res http.ResponseWriter, req *http.Request, storage repositor
 	res.WriteHeader(http.StatusOK)
 }
 
+// GetGlobalHandler - обертка над GetGlobal для возможности установить хранилище метрик.
 func GetGlobalHandler(stor repositories.ServerRepo) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		GetGlobal(res, req, stor)
@@ -336,6 +344,7 @@ func GetGlobalHandler(stor repositories.ServerRepo) http.HandlerFunc {
 	return fn
 }
 
+// PingDatabaseHandler - обертка над PingDatabase для возможности установить базу данных.
 func PingDatabaseHandler(db *sql.DB) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		PingDatabase(res, req, db)
@@ -343,6 +352,7 @@ func PingDatabaseHandler(db *sql.DB) http.HandlerFunc {
 	return fn
 }
 
+// UpdateMetricsBatchHandler - обертка над UpdateMetricsBatch для возможности установить хранилище метрик.
 func UpdateMetricsBatchHandler(stor repositories.ServerRepo) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		UpdateMetricsBatch(res, req, stor)
@@ -350,6 +360,7 @@ func UpdateMetricsBatchHandler(stor repositories.ServerRepo) http.HandlerFunc {
 	return fn
 }
 
+// UpdateMetricsJSONHandler - обертка над UpdateMetricsJSON для возможности установить хранилище метрик.
 func UpdateMetricsJSONHandler(stor repositories.ServerRepo) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		UpdateMetricsJSON(res, req, stor)
@@ -357,6 +368,7 @@ func UpdateMetricsJSONHandler(stor repositories.ServerRepo) http.HandlerFunc {
 	return fn
 }
 
+// UpdateMetricsHandler - обертка над UpdateMetrics для возможности установить хранилище метрик.
 func UpdateMetricsHandler(stor repositories.ServerRepo) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		UpdateMetrics(res, req, stor)
@@ -364,6 +376,7 @@ func UpdateMetricsHandler(stor repositories.ServerRepo) http.HandlerFunc {
 	return fn
 }
 
+// GetMetricJSONHandler - обертка над GetMetricJSON для возможности установить хранилище метрик.
 func GetMetricJSONHandler(stor repositories.ServerRepo) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		GetMetricJSON(res, req, stor)
@@ -371,6 +384,7 @@ func GetMetricJSONHandler(stor repositories.ServerRepo) http.HandlerFunc {
 	return fn
 }
 
+// GetMetricHandler - обертка над GetMetric для возможности установить хранилище метрик.
 func GetMetricHandler(stor repositories.ServerRepo) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		GetMetric(res, req, stor)
@@ -378,6 +392,7 @@ func GetMetricHandler(stor repositories.ServerRepo) http.HandlerFunc {
 	return fn
 }
 
+// OtherRequestHandler - обертка над OtherRequest для возможности установить хранилище метрик.
 func OtherRequestHandler() http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		OtherRequest(res, req)

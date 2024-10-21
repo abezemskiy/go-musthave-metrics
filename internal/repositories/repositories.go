@@ -5,23 +5,25 @@ import (
 	"fmt"
 )
 
+// Интерфесы хранилища метрик.
 type (
+	// Repositories - интерфейс для получения метрики по типу и имени метрики.
 	Repositories interface {
-		GetMetric(context.Context, string, string) (string, error)
+		GetMetric(context.Context, string, string) (string, error) // Метод для получения метрики по типу и имени метрики.
 	}
 
+	// ServerRepo - интерфейс для серверного хранилища метрик.
 	ServerRepo interface {
 		Repositories
-		AddGauge(context.Context, string, float64) error
-		AddCounter(context.Context, string, int64) error
-		GetAllMetrics(context.Context) (string, error)
-		AddMetricsFromSlice(context.Context, []Metric) error
-		GetAllMetricsSlice(context.Context) ([]Metric, error)
-		Bootstrap(context.Context) error
+		AddGauge(context.Context, string, float64) error      // Добавлеет в сервис новую метрики типа "gauge"
+		AddCounter(context.Context, string, int64) error      // Добавлеет в сервис новую метрики типа "counter"
+		GetAllMetrics(context.Context) (string, error)        // Возвращает все хранимые в сервисе метрики в виде строки
+		AddMetricsFromSlice(context.Context, []Metric) error  // Добавляет в сервис метрики из слайса метрик
+		GetAllMetricsSlice(context.Context) ([]Metric, error) // Возвращает все хранимые в сервисе метрики в виде слайса метрик
+		Bootstrap(context.Context) error                      // Инициализирует хранилище метрик
 	}
 
-	// Структура для работы с метриками json формата
-
+	// Metric - структура для работы с метриками json формата
 	Metric struct {
 		ID    string   `json:"id"`              // имя метрики
 		MType string   `json:"type"`            // параметр, принимающий значение gauge или counter
@@ -30,6 +32,7 @@ type (
 	}
 )
 
+// Metric_String возвращает представление метрики в виде строки
 func (metrcic Metric) String() string {
 	var delta = "nil"
 	if metrcic.Delta != nil {

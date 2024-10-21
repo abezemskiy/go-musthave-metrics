@@ -21,47 +21,58 @@ var (
 	restore         bool
 )
 
+// SetStoreInterval - устанавливает переменну storeInterval.
 func SetStoreInterval(interval time.Duration) {
 	storeInterval = interval
 }
 
+// GetStoreInterval - возвращает переменну storeInterval.
 func GetStoreInterval() time.Duration {
 	return storeInterval
 }
 
+// SetFilestoragePath - устанавливает переменну fileStoragePath.
 func SetFilestoragePath(path string) {
 	fileStoragePath = path
 }
 
+// GetFilestoragePath - возвращает переменну fileStoragePath.
 func GetFilestoragePath() string {
 	return fileStoragePath
 }
 
+// SetRestore - устанавливает переменну restore.
 func SetRestore(r bool) {
 	restore = r
 }
 
+// GetRestore - возвращает переменну restore.
 func GetRestore() bool {
 	return restore
 }
 
 // end Global variable -------------------------------------------------
 
+// WriterInterface - интерфейс записи метрик.
 type WriterInterface interface {
-	WriteMetrics(repositories.ServerRepo) error
+	WriteMetrics(repositories.ServerRepo) error // Метод записи.
 }
 
+// WriterInterface - интерфейс чтения метрик.
 type ReadInterface interface {
-	ReadMetrics() ([]repositories.Metric, error)
+	ReadMetrics() ([]repositories.Metric, error) // Метод чтения.
 }
 
 // SaverWriter --------------------------------------------------------------------------------------------------
+
+// Writer - реализация интерфейса WriterInterface
 type Writer struct {
 	file     *os.File
 	writer   *bufio.Writer
 	filename string
 }
 
+// NewWriter - фабричный метод для создания структуры Writer.
 func NewWriter(filename string) (*Writer, error) {
 	// При создании файла удаляю предыдущее содержимое
 	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0666)
@@ -75,6 +86,7 @@ func NewWriter(filename string) (*Writer, error) {
 	}, nil
 }
 
+// Writer_Close - метод закрытия.
 func (storage *Writer) Close() error {
 	if err := storage.writer.Flush(); err != nil {
 		return err
@@ -82,7 +94,7 @@ func (storage *Writer) Close() error {
 	return storage.file.Close()
 }
 
-// Сохраняю метрики из сервера в файл, причем предыдущее содержимое файла удаляю
+// Writer_WriteMetrics - сохраняю метрики из сервера в файл, причем предыдущее содержимое файла удаляю
 func (storage *Writer) WriteMetrics(metrics repositories.ServerRepo) error {
 	metricsSlice, err := metrics.GetAllMetricsSlice(context.Background())
 	if err != nil {
@@ -128,11 +140,14 @@ func (storage *Writer) WriteMetrics(metrics repositories.ServerRepo) error {
 }
 
 // Reader --------------------------------------------------------------------------------------------------
+
+// Reader - реализация интерфейса ReadInterface.
 type Reader struct {
 	file   *os.File
 	reader *bufio.Reader
 }
 
+// NewReader - фабричный метод для создания структуры Reader.
 func NewReader(filename string) (*Reader, error) {
 	file, err := os.OpenFile(filename, os.O_RDONLY|os.O_CREATE, 0666)
 	if err != nil {
@@ -146,7 +161,7 @@ func NewReader(filename string) (*Reader, error) {
 	}, nil
 }
 
-// Метод для чтения метрик из файла и записи их в слайс
+// Reader_ReadMetrics - метод для чтения метрик из файла и записи их в слайс.
 func (saver *Reader) ReadMetrics() ([]repositories.Metric, error) {
 	var bufRead bytes.Buffer
 
@@ -172,7 +187,7 @@ func (saver *Reader) ReadMetrics() ([]repositories.Metric, error) {
 	return metrics, nil
 }
 
-// Функция для загрузки метрик из файла в сервер
+// AddMetricsFromFile - функция для загрузки метрик из файла в сервер.
 func AddMetricsFromFile(stor repositories.ServerRepo, reader ReadInterface) error {
 	if GetRestore() {
 		metrics, err := reader.ReadMetrics()

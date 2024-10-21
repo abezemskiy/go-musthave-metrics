@@ -32,28 +32,32 @@ var (
 	contextTimeout               = 500 * time.Millisecond
 )
 
+// SetPollInterval устанавливает интервал между сбором.
 func SetPollInterval(interval time.Duration) {
 	pollInterval = interval
 }
 
+// GetPollInterval - функция для получения интервала сбора метрик.
 func GetPollInterval() time.Duration {
 	return pollInterval
 }
 
+// SetReportInterval устанавливает интервал между отправками метрик на сервер.
 func SetReportInterval(interval time.Duration) {
 	reportInterval = interval
 }
 
+// GetReportInterval - функция для получения интервала отправки метрик на сервер.
 func GetReportInterval() time.Duration {
 	return reportInterval
 }
 
-// CollectMetrics собирает метрики
+// SyncCollectMetrics - собирает метрики.
 func SyncCollectMetrics(metrics *storage.MetricsStats) {
 	metrics.CollectMetrics()
 }
 
-// CollectMetricsTimer запускает сбор метрик с интервалом
+// CollectMetricsTimer запускает сбор метрик через заданный интервал времени.
 func CollectMetricsTimer(metrics *storage.MetricsStats, wg *sync.WaitGroup) {
 	wg.Add(1)
 	defer wg.Done()
@@ -65,7 +69,7 @@ func CollectMetricsTimer(metrics *storage.MetricsStats, wg *sync.WaitGroup) {
 	}
 }
 
-// Строю структуру метрики из принятых параметров
+// BuildMetric - строит структуру метрики из принятых параметров типа string.
 func BuildMetric(typeMetric, nameMetric, valueMetric string) (metric repositories.Metric, err error) {
 	metric.ID = nameMetric
 	metric.MType = typeMetric
@@ -93,7 +97,7 @@ func BuildMetric(typeMetric, nameMetric, valueMetric string) (metric repositorie
 	return
 }
 
-// Push отправляет метрику на сервер в JSON формате и возвращает ошибку при неудаче
+// Push - отправляет метрику на сервер в JSON формате и возвращает ошибку при неудаче.
 func PushJSON(address, action, typeMetric, nameMetric, valueMetric string, client *resty.Client) error {
 	metric, err := BuildMetric(typeMetric, nameMetric, valueMetric)
 	if err != nil {
@@ -177,7 +181,7 @@ func PushJSON(address, action, typeMetric, nameMetric, valueMetric string, clien
 	return nil
 }
 
-// Push отправляет метрику на сервер и возвращает ошибку при неудаче
+// Push отправляет метрику на сервер и возвращает ошибку при неудаче.
 func Push(address, action, typemetric, namemetric, valuemetric string, client *resty.Client) error {
 	url := fmt.Sprintf("%s/%s/%s/%s/%s", address, action, typemetric, namemetric, valuemetric)
 	resp, err := client.R().
@@ -194,7 +198,7 @@ func Push(address, action, typemetric, namemetric, valuemetric string, client *r
 	return nil
 }
 
-// Отправляет все накопленные метрики на сервер, поочередно отправляя каждую метрику по отдельности
+// PushMetrics - отправляет все собранные метрики на сервер, поочередно отправляя каждую метрику по отдельности.
 func PushMetrics(address, action string, metrics *storage.MetricsStats, client *resty.Client) {
 	metrics.Lock()
 	defer metrics.Unlock()
@@ -212,7 +216,7 @@ func PushMetrics(address, action string, metrics *storage.MetricsStats, client *
 	}
 }
 
-// Отправляет батч метрик на сервер
+// PushBatch - отправляет батч метрик на сервер.
 func PushBatch(address, action string, metricsSlice []repositories.Metric, client *resty.Client) error {
 
 	// сериализую полученную слайс с метриками в json-представление  в виде слайса байт
@@ -294,7 +298,7 @@ func PushBatch(address, action string, metricsSlice []repositories.Metric, clien
 	return nil
 }
 
-// Строит батч метрик и отправляет полученный батч на сервер в рамках одной передачи
+// PushMetricsBatch - строит батч метрик и вызывает функцию для отправки батча на сервер в рамках одной передачи.
 func PushMetricsBatch(address, action string, metrics *storage.MetricsStats, client *resty.Client) error {
 	metrics.Lock()
 	defer metrics.Unlock()
@@ -322,7 +326,7 @@ func PushMetricsBatch(address, action string, metrics *storage.MetricsStats, cli
 	return nil
 }
 
-// Проверка того, что ошибка это "connect: connection refused"
+// isConnectionRefused - проверка того, что ошибка это "connect: connection refused"
 func isConnectionRefused(err error) bool {
 	if err == nil {
 		return false
@@ -334,6 +338,7 @@ func isConnectionRefused(err error) bool {
 	return res
 }
 
+// isDBTransportError - проверяет, что ошибка относится к DBTransportError
 func isDBTransportError(err error) bool {
 	if err == nil {
 		return false
@@ -358,6 +363,7 @@ func isDBTransportError(err error) bool {
 	return res
 }
 
+// isFileLockedError - проверяет, что ошибка относится к FileLockedError
 func isFileLockedError(err error) bool {
 	if err == nil {
 		return false
@@ -377,9 +383,10 @@ func isFileLockedError(err error) bool {
 	return res
 }
 
+// PushFunction - тип функции выполняющей отправку метрики.
 type PushFunction = func(string, string, *storage.MetricsStats, *resty.Client) error
 
-// Для повторной отправки запроса в случае, если сервер не отвечает. Установлено три дополнительных попыток
+// RetryExecPushFunction - для повторной отправки запроса в случае, если сервер не отвечает. Установлено три дополнительных попыток.
 func RetryExecPushFunction(address, action string, metrics *storage.MetricsStats, client *resty.Client, pushFunction PushFunction) {
 	sleepIntervals := []time.Duration{0, 1, 3, 5}
 
@@ -400,13 +407,16 @@ func RetryExecPushFunction(address, action string, metrics *storage.MetricsStats
 	}
 }
 
+// Task - структура для хранения всех необходимых параметров для отправки метрик.
+// Реализация патерна worker pool.
 type Task struct {
-	address      string
-	action       string
-	metrics      *storage.MetricsStats
-	pushFunction PushFunction
+	address      string                // адрес отправки
+	action       string                // http метод, например: POST
+	metrics      *storage.MetricsStats // структура с собранными метриками
+	pushFunction PushFunction          // функция, непосредственно выполняющая отправку
 }
 
+// Task - фабричная функция структуры Task.
 func NewTask(address, action string, metrics *storage.MetricsStats, pushFunction PushFunction) *Task {
 	return &Task{
 		address:      address,
@@ -416,6 +426,7 @@ func NewTask(address, action string, metrics *storage.MetricsStats, pushFunction
 	}
 }
 
+// NewTask_DoPush - метод для выполнения задачи.
 func (t Task) DoPush() {
 	client := resty.New()
 	// Добавляем middleware для обработки ответа
@@ -425,6 +436,7 @@ func (t Task) DoPush() {
 	logger.AgentLog.Debug("Running agent", zap.String("action", "push metrics"))
 }
 
+// PushWorker - принимает задачу из канала и выполняет её.
 func PushWorker(pushTasks <-chan Task, wg *sync.WaitGroup) {
 	wg.Add(1)
 	defer wg.Done()

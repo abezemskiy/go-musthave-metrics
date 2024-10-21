@@ -23,7 +23,7 @@ func main() {
 	}
 }
 
-// функция run будет полезна при инициализации зависимостей агента перед запуском
+// run - будет полезна при инициализации зависимостей агента перед запуском
 func run(metrics *storage.MetricsStats) error {
 	if err := logger.Initialize(flagLogLevel); err != nil {
 		return err
@@ -49,6 +49,7 @@ func run(metrics *storage.MetricsStats) error {
 	return nil
 }
 
+// GeneratePushTasks - генерирует задачи для их выполнения пулом работников.
 func GeneratePushTasks(tasks chan<- handlers.Task, address, action string, metrics *storage.MetricsStats, wg *sync.WaitGroup) {
 	wg.Add(1)
 	defer wg.Done()

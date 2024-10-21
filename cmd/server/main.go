@@ -80,7 +80,7 @@ func main() {
 	log.Println("Stop server")
 }
 
-// функция run будет полезна при инициализации зависимостей сервера перед запуском
+// run полезна при инициализации зависимостей сервера перед запуском.
 func run(stor repositories.ServerRepo, saverVar saver.WriterInterface, db *sql.DB, saveMode int) error {
 	if err := logger.Initialize(flagLogLevel); err != nil {
 		return err
@@ -109,6 +109,7 @@ func run(stor repositories.ServerRepo, saverVar saver.WriterInterface, db *sql.D
 	return http.ListenAndServe(flagNetAddr, MetricRouter(stor, db))
 }
 
+// MetricRouter - дирежирует обработку http запросов к серверу.
 func MetricRouter(stor repositories.ServerRepo, db *sql.DB) chi.Router {
 
 	r := chi.NewRouter()
@@ -135,6 +136,7 @@ func MetricRouter(stor repositories.ServerRepo, db *sql.DB) chi.Router {
 	return r
 }
 
+// FlushMetricsToFile - сохраняет метрики в файл.
 func FlushMetricsToFile(stor repositories.ServerRepo, saverVar saver.WriterInterface) {
 	logger.ServerLog.Debug("starting flush metrics to file")
 
