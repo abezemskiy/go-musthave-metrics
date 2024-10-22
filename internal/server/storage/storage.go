@@ -155,4 +155,10 @@ func (storage *MemStorage) Bootstrap(ctx context.Context) error {
 	return nil
 }
 
+// MemStorage_Clean - очищает хранилище от данных.
+func (storage *MemStorage) Clean(ctx context.Context) {
+	storage.counters = map[string]int64{}
+	storage.gauges = map[string]float64{}
+}
+
 // Хранилище метрик -----------------------------------------------------------------------------------------

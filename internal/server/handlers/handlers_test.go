@@ -3,9 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -21,7 +19,6 @@ import (
 	"golang.org/x/exp/rand"
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/pg"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/saver"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/storage"
 )
@@ -716,49 +713,11 @@ func TestUpdateMetricsJSON(t *testing.T) {
 }
 
 func BenchmarkUpdateMetricsJSON(b *testing.B) {
-	// // Функция для очистки данных в базе
-	cleanBD := func(dsn string) {
-		// очищаю данные в тестовой бд------------------------------------------------------
-		// создаём соединение с СУБД PostgreSQL
-		conn, err := sql.Open("pgx", dsn)
-		require.NoError(b, err)
-		defer conn.Close()
-
-		// Проверка соединения с БД
-		ctx := context.Background()
-		err = conn.PingContext(ctx)
-		require.NoError(b, err)
-
-		// создаем экземпляр хранилища pg
-		stor := pg.NewStore(conn)
-		err = stor.Bootstrap(ctx)
-		require.NoError(b, err)
-		err = stor.Disable(ctx)
-		require.NoError(b, err)
-		defer conn.Close()
-	}
-
-	databaseDsn := "host=localhost user=benchmarkmetrics password=password dbname=benchmarkmetrics sslmode=disable"
-
-	// Запускаю базу данных для сохранения метрик------------------------------------------
-	db, err := sql.Open("pgx", databaseDsn)
-	if err != nil {
-		log.Fatalf("Error create database connection for saving metrics : %v\n", err)
-	}
-	// Проверка соединения с БД
+	// В качестве хранилища использую оперативную память.
+	// В данной конфигурации автотестов использовать в качестве хранилища не представляется возможным,
+	// так как нет корректного dsn адреса для запуска бд.
+	stor := storage.NewDefaultMemStorage()
 	ctx := context.Background()
-	err = db.PingContext(ctx)
-	if err != nil {
-		log.Fatalf("Error checking connection with database: %v\n", err)
-	}
-	// создаем экземпляр хранилища pg
-	stor := pg.NewStore(db)
-	err = stor.Bootstrap(ctx)
-	if err != nil {
-		log.Fatalf("Error prepare database to work: %v\n", err)
-	}
-	defer db.Close()
-	// -------------------------------------------------------------------------------------
 
 	// Генерация метрик для заполения сервиса-----------------------------------------------------
 	const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -825,7 +784,7 @@ func BenchmarkUpdateMetricsJSON(b *testing.B) {
 	// запускаю бенчмарк
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		cleanBD(databaseDsn)
+		stor.Clean(ctx)
 		b.StartTimer()
 
 		for _, m := range metrics {
