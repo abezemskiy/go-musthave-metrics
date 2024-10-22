@@ -286,17 +286,16 @@ func TestMusthaveMetrics(t *testing.T) {
 	go startAgent(&wg)
 	time.Sleep(2 * time.Second) // Жду 2 секунды для запуска сервиса
 
+	time.Sleep(5 * time.Minute) // Жду 2 минуты для сбора профиля работы сервиса
+	close(done)
+	wg.Wait()
+
 	// создаём файл журнала профилирования памяти
 	fmem, err := os.Create(`./../../profiles/result.pprof`)
 	if err != nil {
 		panic(err)
 	}
 	defer fmem.Close()
-
-	time.Sleep(2 * time.Minute) // Жду 2 минуты для сбора профиля работы сервиса
-	close(done)
-	wg.Wait()
-
 	runtime.GC() // получаем статистику по использованию памяти
 	if err := pprof.WriteHeapProfile(fmem); err != nil {
 		panic(err)
