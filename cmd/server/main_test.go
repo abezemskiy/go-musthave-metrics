@@ -292,12 +292,13 @@ func TestMusthaveMetrics(t *testing.T) {
 		panic(err)
 	}
 	defer fmem.Close()
-	runtime.GC() // получаем статистику по использованию памяти
-	if err := pprof.WriteHeapProfile(fmem); err != nil {
-		panic(err)
-	}
 
 	time.Sleep(2 * time.Minute) // Жду 2 минуты для сбора профиля работы сервиса
 	close(done)
 	wg.Wait()
+
+	runtime.GC() // получаем статистику по использованию памяти
+	if err := pprof.WriteHeapProfile(fmem); err != nil {
+		panic(err)
+	}
 }
