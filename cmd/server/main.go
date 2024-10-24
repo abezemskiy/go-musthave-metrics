@@ -33,7 +33,7 @@ func main() {
 	defer db.Close()
 
 	// Создаю разные хранилища в зависимости от типа запуска сервера
-	var stor repositories.ServerRepo
+	var stor repositories.IStorage
 	if saveMode == SAVEINDATABASE {
 		// создаём соединение с СУБД PostgreSQL с помощью аргумента командной строки
 		conn, err := sql.Open("pgx", flagDatabaseDsn)
@@ -81,7 +81,7 @@ func main() {
 }
 
 // run полезна при инициализации зависимостей сервера перед запуском.
-func run(stor repositories.ServerRepo, saverVar saver.FileWriter, db *sql.DB, saveMode int) error {
+func run(stor repositories.IStorage, saverVar saver.FileWriter, db *sql.DB, saveMode int) error {
 	if err := logger.Initialize(flagLogLevel); err != nil {
 		return err
 	}
@@ -110,7 +110,7 @@ func run(stor repositories.ServerRepo, saverVar saver.FileWriter, db *sql.DB, sa
 }
 
 // MetricRouter - дирежирует обработку http запросов к серверу.
-func MetricRouter(stor repositories.ServerRepo, db *sql.DB) chi.Router {
+func MetricRouter(stor repositories.IStorage, db *sql.DB) chi.Router {
 
 	r := chi.NewRouter()
 
@@ -121,7 +121,8 @@ func MetricRouter(stor repositories.ServerRepo, db *sql.DB) chi.Router {
 		r.Post("/updates/", logger.RequestLogger(compress.GzipMiddleware(hasher.HashMiddleware(handlers.UpdateMetricsBatchHandler(stor)))))
 		r.Route("/update", func(r chi.Router) {
 			r.Post("/", logger.RequestLogger(compress.GzipMiddleware(hasher.HashMiddleware(handlers.UpdateMetricsJSONHandler(stor)))))
-			r.Post("/{metricType}/{metricName}/{metricValue}", logger.RequestLogger(compress.GzipMiddleware(hasher.HashMiddleware(handlers.UpdateMetricsHandler(stor)))))
+			r.Post("/{metricType}/{metricName}/{metricValue}", logger.RequestLogger(
+				compress.GzipMiddleware(hasher.HashMiddleware(handlers.UpdateMetricsHandler(stor)))))
 		})
 
 		r.Route("/value", func(r chi.Router) {
@@ -137,7 +138,7 @@ func MetricRouter(stor repositories.ServerRepo, db *sql.DB) chi.Router {
 }
 
 // FlushMetricsToFile - сохраняет метрики в файл.
-func FlushMetricsToFile(stor repositories.ServerRepo, saverVar saver.FileWriter) {
+func FlushMetricsToFile(stor repositories.MetricsReader, saverVar saver.FileWriter) {
 	logger.ServerLog.Debug("starting flush metrics to file")
 
 	sleepInterval := saver.GetStoreInterval() * time.Second

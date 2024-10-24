@@ -55,7 +55,7 @@ func GetRestore() bool {
 
 // FileWriter - интерфейс записи метрик.
 type FileWriter interface {
-	WriteMetrics(repositories.ServerRepo) error // Метод записи.
+	WriteMetrics(repositories.MetricsReader) error // Метод записи.
 }
 
 // FileReader - интерфейс чтения метрик.
@@ -95,7 +95,7 @@ func (storage *Writer) Close() error {
 }
 
 // Writer_WriteMetrics - сохраняю метрики из сервера в файл, причем предыдущее содержимое файла удаляю
-func (storage *Writer) WriteMetrics(metrics repositories.ServerRepo) error {
+func (storage *Writer) WriteMetrics(metrics repositories.MetricsReader) error {
 	metricsSlice, err := metrics.GetAllMetricsSlice(context.Background())
 	if err != nil {
 		return err
@@ -188,7 +188,7 @@ func (saver *Reader) ReadMetrics() ([]repositories.Metric, error) {
 }
 
 // AddMetricsFromFile - функция для загрузки метрик из файла в сервер.
-func AddMetricsFromFile(stor repositories.ServerRepo, reader FileReader) error {
+func AddMetricsFromFile(stor repositories.MetricsWriter, reader FileReader) error {
 	if GetRestore() {
 		metrics, err := reader.ReadMetrics()
 		if err != nil {
