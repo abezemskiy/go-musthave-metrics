@@ -57,7 +57,7 @@ func main() {
 	}
 
 	// В случае запуска сервера в режиме сохранения метрик в файл
-	var saverVar saver.WriterInterface
+	var saverVar saver.FileWriter
 	if saveMode == SAVEINFILE {
 		// Для загрузки метрик из файла на сервер
 		var err error
@@ -81,12 +81,12 @@ func main() {
 }
 
 // run полезна при инициализации зависимостей сервера перед запуском.
-func run(stor repositories.ServerRepo, saverVar saver.WriterInterface, db *sql.DB, saveMode int) error {
+func run(stor repositories.ServerRepo, saverVar saver.FileWriter, db *sql.DB, saveMode int) error {
 	if err := logger.Initialize(flagLogLevel); err != nil {
 		return err
 	}
 
-	var reader saver.ReadInterface
+	var reader saver.FileReader
 	var err error
 	if saveMode == SAVEINFILE {
 		reader, err = saver.NewReader(saver.GetFilestoragePath())
@@ -137,7 +137,7 @@ func MetricRouter(stor repositories.ServerRepo, db *sql.DB) chi.Router {
 }
 
 // FlushMetricsToFile - сохраняет метрики в файл.
-func FlushMetricsToFile(stor repositories.ServerRepo, saverVar saver.WriterInterface) {
+func FlushMetricsToFile(stor repositories.ServerRepo, saverVar saver.FileWriter) {
 	logger.ServerLog.Debug("starting flush metrics to file")
 
 	sleepInterval := saver.GetStoreInterval() * time.Second

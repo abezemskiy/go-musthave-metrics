@@ -53,19 +53,19 @@ func GetRestore() bool {
 
 // end Global variable -------------------------------------------------
 
-// WriterInterface - интерфейс записи метрик.
-type WriterInterface interface {
+// FileWriter - интерфейс записи метрик.
+type FileWriter interface {
 	WriteMetrics(repositories.ServerRepo) error // Метод записи.
 }
 
-// WriterInterface - интерфейс чтения метрик.
-type ReadInterface interface {
+// FileReader - интерфейс чтения метрик.
+type FileReader interface {
 	ReadMetrics() ([]repositories.Metric, error) // Метод чтения.
 }
 
 // SaverWriter --------------------------------------------------------------------------------------------------
 
-// Writer - реализация интерфейса WriterInterface
+// Writer - реализация интерфейса FileWriter
 type Writer struct {
 	file     *os.File
 	writer   *bufio.Writer
@@ -141,7 +141,7 @@ func (storage *Writer) WriteMetrics(metrics repositories.ServerRepo) error {
 
 // Reader --------------------------------------------------------------------------------------------------
 
-// Reader - реализация интерфейса ReadInterface.
+// Reader - реализация интерфейса FileReader.
 type Reader struct {
 	file   *os.File
 	reader *bufio.Reader
@@ -188,7 +188,7 @@ func (saver *Reader) ReadMetrics() ([]repositories.Metric, error) {
 }
 
 // AddMetricsFromFile - функция для загрузки метрик из файла в сервер.
-func AddMetricsFromFile(stor repositories.ServerRepo, reader ReadInterface) error {
+func AddMetricsFromFile(stor repositories.ServerRepo, reader FileReader) error {
 	if GetRestore() {
 		metrics, err := reader.ReadMetrics()
 		if err != nil {
