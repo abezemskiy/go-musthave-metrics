@@ -1,3 +1,5 @@
+// Packet compress implement middleware for substitute origin responseWriter to
+// responseWriter supporting compress if client support compressing.
 package compress
 
 import (
@@ -5,9 +7,10 @@ import (
 	"slices"
 	"strings"
 
+	"go.uber.org/zap"
+
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/logger"
-	"go.uber.org/zap"
 )
 
 var contentTypes = []string{
@@ -16,6 +19,8 @@ var contentTypes = []string{
 	"",
 }
 
+// GzipMiddleware - мидлварь для замены оригинального http.ResponseWriter на ResponseWriter сжимающий данные,
+// если клиент поддерживает сжатие.
 func GzipMiddleware(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// по умолчанию устанавливаем оригинальный http.ResponseWriter как тот,

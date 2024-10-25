@@ -1,4 +1,4 @@
-package handlers
+package pusher
 
 import (
 	"bytes"
@@ -7,94 +7,23 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
-	"strconv"
 	"strings"
-	"sync"
-	"syscall"
-	"time"
+
+	"github.com/go-resty/resty/v2"
+	"go.uber.org/zap"
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/compress"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/hasher"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/logger"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/metrics/builder"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/metrics/config"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/storage"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
-	"github.com/go-resty/resty/v2"
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5/pgconn"
-	"go.uber.org/zap"
 )
 
-var (
-	pollInterval   time.Duration = 2
-	reportInterval time.Duration = 10
-	contextTimeout               = 500 * time.Millisecond
-)
-
-func SetPollInterval(interval time.Duration) {
-	pollInterval = interval
-}
-
-func GetPollInterval() time.Duration {
-	return pollInterval
-}
-
-func SetReportInterval(interval time.Duration) {
-	reportInterval = interval
-}
-
-func GetReportInterval() time.Duration {
-	return reportInterval
-}
-
-// CollectMetrics собирает метрики
-func SyncCollectMetrics(metrics *storage.MetricsStats) {
-	metrics.CollectMetrics()
-}
-
-// CollectMetricsTimer запускает сбор метрик с интервалом
-func CollectMetricsTimer(metrics *storage.MetricsStats, wg *sync.WaitGroup) {
-	wg.Add(1)
-	defer wg.Done()
-
-	sleepInterval := GetPollInterval() * time.Second
-	for {
-		SyncCollectMetrics(metrics)
-		time.Sleep(sleepInterval)
-	}
-}
-
-// Строю структуру метрики из принятых параметров
-func BuildMetric(typeMetric, nameMetric, valueMetric string) (metric repositories.Metric, err error) {
-	metric.ID = nameMetric
-	metric.MType = typeMetric
-
-	switch typeMetric {
-	case "counter":
-		val, errParse := strconv.ParseInt(valueMetric, 10, 64)
-		if errParse != nil {
-			err = errParse
-			return
-		}
-		metric.Delta = &val
-	case "gauge":
-		val, errParse := strconv.ParseFloat(valueMetric, 64)
-		if errParse != nil {
-			err = errParse
-			return
-		}
-		metric.Value = &val
-	default:
-		err = fmt.Errorf("get invalid type of metric: %s", typeMetric)
-		return
-	}
-	logger.AgentLog.Debug(fmt.Sprintf("Success build metric structure for JSON: name: %s, type: %s, delta: %d, value: %d", metric.ID, metric.MType, metric.Delta, metric.Value))
-	return
-}
-
-// Push отправляет метрику на сервер в JSON формате и возвращает ошибку при неудаче
+// Push - отправляет метрику на сервер в JSON формате и возвращает ошибку при неудаче.
 func PushJSON(address, action, typeMetric, nameMetric, valueMetric string, client *resty.Client) error {
-	metric, err := BuildMetric(typeMetric, nameMetric, valueMetric)
+	metric, err := builder.Build(typeMetric, nameMetric, valueMetric)
 	if err != nil {
 		logger.AgentLog.Error("Build metric error", zap.String("error", error.Error(err)))
 		return err
@@ -176,7 +105,7 @@ func PushJSON(address, action, typeMetric, nameMetric, valueMetric string, clien
 	return nil
 }
 
-// Push отправляет метрику на сервер и возвращает ошибку при неудаче
+// Push отправляет метрику на сервер и возвращает ошибку при неудаче.
 func Push(address, action, typemetric, namemetric, valuemetric string, client *resty.Client) error {
 	url := fmt.Sprintf("%s/%s/%s/%s/%s", address, action, typemetric, namemetric, valuemetric)
 	resp, err := client.R().
@@ -193,8 +122,8 @@ func Push(address, action, typemetric, namemetric, valuemetric string, client *r
 	return nil
 }
 
-// Отправляет все накопленные метрики на сервер, поочередно отправляя каждую метрику по отдельности
-func PushMetrics(address, action string, metrics *storage.MetricsStats, client *resty.Client) {
+// PushAll - отправляет все собранные метрики на сервер, поочередно отправляя каждую метрику по отдельности.
+func PushAll(address, action string, metrics *storage.MetricsStats, client *resty.Client) {
 	metrics.Lock()
 	defer metrics.Unlock()
 
@@ -211,7 +140,7 @@ func PushMetrics(address, action string, metrics *storage.MetricsStats, client *
 	}
 }
 
-// Отправляет батч метрик на сервер
+// PushBatch - отправляет батч метрик на сервер.
 func PushBatch(address, action string, metricsSlice []repositories.Metric, client *resty.Client) error {
 
 	// сериализую полученную слайс с метриками в json-представление  в виде слайса байт
@@ -230,7 +159,7 @@ func PushBatch(address, action string, metricsSlice []repositories.Metric, clien
 	}
 
 	// Создаю контекст с таймаутом
-	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), config.GetContextTimeout())
 	defer cancel()
 
 	// Подписываю данные отправляемые на сервер
@@ -293,8 +222,8 @@ func PushBatch(address, action string, metricsSlice []repositories.Metric, clien
 	return nil
 }
 
-// Строит батч метрик и отправляет полученный батч на сервер в рамках одной передачи
-func PushMetricsBatch(address, action string, metrics *storage.MetricsStats, client *resty.Client) error {
+// PrepareAndPushBatch - строит батч метрик и вызывает функцию для отправки батча на сервер в рамках одной передачи.
+func PrepareAndPushBatch(address, action string, metrics *storage.MetricsStats, client *resty.Client) error {
 	metrics.Lock()
 	defer metrics.Unlock()
 	metricsSlice := make([]repositories.Metric, 0)
@@ -306,7 +235,7 @@ func PushMetricsBatch(address, action string, metrics *storage.MetricsStats, cli
 			logger.AgentLog.Error(fmt.Sprintf("Failed to get metric %s: %v\n", typeMetric, err), zap.String("action", "push metrics"))
 			continue
 		}
-		metric, err := BuildMetric(typeMetric, metricName, value)
+		metric, err := builder.Build(typeMetric, metricName, value)
 		if err != nil {
 			logger.AgentLog.Error(fmt.Sprintf("Failed to build metric structer %s: %v\n", typeMetric, err), zap.String("action", "push metrics"))
 			continue
@@ -319,116 +248,4 @@ func PushMetricsBatch(address, action string, metrics *storage.MetricsStats, cli
 		return err
 	}
 	return nil
-}
-
-// Проверка того, что ошибка это "connect: connection refused"
-func isConnectionRefused(err error) bool {
-	if err == nil {
-		return false
-	}
-	res := errors.Is(err, syscall.ECONNREFUSED) || strings.Contains(err.Error(), "dial tcp: connect: connection refused")
-	if res {
-		logger.AgentLog.Debug("error isConnectionRefused")
-	}
-	return res
-}
-
-func isDBTransportError(err error) bool {
-	if err == nil {
-		return false
-	}
-	asPgError := false
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
-		asPgError = (pgerrcode.IsConnectionException(pgErr.Code) ||
-			pgErr.Code == pgerrcode.ConnectionDoesNotExist ||
-			pgErr.Code == pgerrcode.ConnectionFailure ||
-			pgErr.Code == pgerrcode.SQLClientUnableToEstablishSQLConnection)
-	}
-	asString := false
-	asString = strings.Contains(err.Error(), "connection exception") ||
-		strings.Contains(err.Error(), "connection does not exist") ||
-		strings.Contains(err.Error(), "connection failure") ||
-		strings.Contains(err.Error(), "SQL client unable to establish SQL connection")
-	res := asPgError || asString
-	if res {
-		logger.AgentLog.Debug("error isDBTransportError")
-	}
-	return res
-}
-
-func isFileLockedError(err error) bool {
-	if err == nil {
-		return false
-	}
-	asError := false
-	asError = errors.Is(err, syscall.EACCES) ||
-		errors.Is(err, syscall.EROFS) ||
-		errors.Is(err, os.ErrPermission)
-
-	asString := false
-	asString = strings.Contains(err.Error(), "permission denied") ||
-		strings.Contains(err.Error(), "read-only file system")
-	res := asError || asString
-	if res {
-		logger.AgentLog.Debug("error isFileLockedError")
-	}
-	return res
-}
-
-type PushFunction = func(string, string, *storage.MetricsStats, *resty.Client) error
-
-// Для повторной отправки запроса в случае, если сервер не отвечает. Установлено три дополнительных попыток
-func RetryExecPushFunction(address, action string, metrics *storage.MetricsStats, client *resty.Client, pushFunction PushFunction) {
-	sleepIntervals := []time.Duration{0, 1, 3, 5}
-
-	for i := 0; i < 4; i++ {
-		logger.AgentLog.Debug(fmt.Sprintf("Push metrics to server, attemption %d", i+1))
-
-		time.Sleep(sleepIntervals[i] * time.Second)
-
-		err := pushFunction(address, action, metrics, client)
-		if err != nil && (errors.Is(err, context.DeadlineExceeded) ||
-			isConnectionRefused(err) ||
-			isDBTransportError(err)) ||
-			isFileLockedError(err) {
-			continue
-		} else {
-			return
-		}
-	}
-}
-
-type Task struct {
-	address string
-	action  string
-	metrics *storage.MetricsStats
-	pushFunction PushFunction
-}
-
-func NewTask(address, action string, metrics *storage.MetricsStats, pushFunction PushFunction) *Task {
-	return &Task{
-		address:      address,
-		action:       action,
-		metrics:      metrics,
-		pushFunction: pushFunction,
-	}
-}
-
-func (t Task) DoPush() {
-	client := resty.New()
-	// Добавляем middleware для обработки ответа
-	client.OnAfterResponse(hasher.VerifyHashMiddleware)
-
-	RetryExecPushFunction(t.address, t.action, t.metrics, client, t.pushFunction)
-	logger.AgentLog.Debug("Running agent", zap.String("action", "push metrics"))
-}
-
-func PushWorker(pushTasks <-chan Task, wg *sync.WaitGroup) {
-	wg.Add(1)
-	defer wg.Done()
-
-	for pushTask := range pushTasks {
-		pushTask.DoPush()
-	}
 }

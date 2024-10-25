@@ -7,14 +7,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/logger"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
 	"go.uber.org/zap"
 	"golang.org/x/exp/rand"
+
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/logger"
 )
 
+// GaugeMetrics - слайс метрик типа "gauge".
 var GaugeMetrics []string
+
+// AllMetrics - слайс метрик.
 var AllMetrics []string
 
 func init() {
@@ -26,7 +30,7 @@ func init() {
 		"OtherSys", "PauseTotalNs", "StackInuse", "StackSys", "Sys", "TotalAlloc", "TotalMemory", "FreeMemory", "CPUutilization1", "PollCount", "RandomValue"}
 }
 
-// MetricsStats структура для хранения метрик
+// MetricsStats - структура для хранения метрик.
 type MetricsStats struct {
 	sync.Mutex
 	runtime.MemStats
@@ -57,7 +61,7 @@ func collectExtraMetrics(ch chan<- map[string]float64) {
 	ch <- res
 }
 
-// CollectMetrics собирает метрики
+// MetricsStats_CollectMetrics - собирает метрики.
 func (metrics *MetricsStats) CollectMetrics() {
 	// Сбор дополнительных метрик в отдельной горутине
 	extraM := make(chan map[string]float64, 1)
@@ -82,6 +86,7 @@ func (metrics *MetricsStats) CollectMetrics() {
 	}
 }
 
+// GetRandomMetricName - вспомогательная функция для генерации метрики "RandomValue"
 func GetRandomMetricName() string {
 	// Инициализируем случайный источник с текущим временем
 	rand.Seed(uint64(time.Now().UnixNano()))
@@ -91,6 +96,7 @@ func GetRandomMetricName() string {
 	return GaugeMetrics[randomIndex]
 }
 
+// MetricsStats_GetMetricString - возвращает тип и значение метрики в виде строки по имени метрики.
 func (metrics *MetricsStats) GetMetricString(name string) (typeMetric, value string, err error) {
 	switch name {
 	case "Alloc":
@@ -162,6 +168,7 @@ func (metrics *MetricsStats) GetMetricString(name string) (typeMetric, value str
 	return "", "", fmt.Errorf("metric %s is not exist", name)
 }
 
+// NewMetricsStats - фабричная функция для создания структуры MetricsStats
 func NewMetricsStats() *MetricsStats {
 	return &MetricsStats{}
 }
