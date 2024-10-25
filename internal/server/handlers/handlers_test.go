@@ -7,15 +7,20 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/saver"
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/storage"
+	_ "github.com/jackc/pgx/v5/stdlib"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-test/deep"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/rand"
+
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/saver"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/storage"
 )
 
 func TestOtherRequest(t *testing.T) {
@@ -703,6 +708,105 @@ func TestUpdateMetricsJSON(t *testing.T) {
 					assert.Equal(t, tt.body, resMetric)
 				}
 			})
+		}
+	}
+}
+
+func BenchmarkUpdateMetricsJSON(b *testing.B) {
+	// В качестве хранилища использую оперативную память.
+	// В данной конфигурации автотестов использовать в качестве хранилища не представляется возможным,
+	// так как нет корректного dsn адреса для запуска бд.
+	stor := storage.NewDefaultMemStorage()
+	ctx := context.Background()
+
+	// Генерация метрик для заполения сервиса-----------------------------------------------------
+	const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	// Функция для генерации случайного имени метрики
+	randomMetricName := func(n int) string {
+		sb := strings.Builder{}
+		sb.Grow(n)
+		for i := 0; i < n; i++ {
+			sb.WriteByte(letterBytes[rand.Intn(len(letterBytes))])
+		}
+		return sb.String()
+	}
+	// Функция для генерации случайного значения метрики
+	randomGaugeValue := func() float64 {
+		return -1000000 + rand.Float64()*(2000000) // от -1000000 до 1000000
+	}
+	randomCounterValue := func() int64 {
+		return -1000000 + rand.Int63()*(2000000) // от -1000000 до 1000000
+	}
+	// Функция для случайного выбора типа метрики (gauge или counter)
+	randomMetricType := func() string {
+		types := []string{"gauge", "counter"}
+		return types[rand.Intn(len(types))]
+	}
+
+	metricsNumber := 10000
+	metrics := make([][]byte, 0, metricsNumber)
+	for i := 0; i < metricsNumber; i++ {
+		var metric repositories.Metric
+
+		lenName := 5 + rand.Intn(5)
+		name := randomMetricName(lenName)
+		typeMetric := randomMetricType()
+		switch typeMetric {
+		case "gauge":
+			value := randomGaugeValue()
+			metric = repositories.Metric{
+				ID:    name,
+				MType: "gauge",
+				Value: &value,
+			}
+		case "counter":
+			value := randomCounterValue()
+			metric = repositories.Metric{
+				ID:    name,
+				MType: "counter",
+				Delta: &value,
+			}
+		}
+
+		// сериализую струтктуру с метриками в json
+		body, err := json.Marshal(metric)
+		if err != nil {
+			b.Error(err, "Marshall message error")
+		}
+		// заполняю слайс с сериализованными метриками
+		metrics = append(metrics, body)
+	}
+	// -------------------------------------------------------------------------------------
+
+	// Сбрасываю счетчик
+	b.ResetTimer()
+
+	// запускаю бенчмарк
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		stor.Clean(ctx)
+		b.StartTimer()
+
+		for _, m := range metrics {
+			// не учитываю подготовительные операции -----------------
+			b.StopTimer()
+			r := chi.NewRouter()
+			r.Post("/update", func(res http.ResponseWriter, req *http.Request) {
+				UpdateMetricsJSON(res, req, stor)
+			})
+			request := httptest.NewRequest(http.MethodPost, "/update", bytes.NewBuffer(m))
+			w := httptest.NewRecorder()
+			b.StartTimer() //---------------------------------------------
+
+			r.ServeHTTP(w, request)
+
+			// проверка кода ответа сервера
+			b.StopTimer()
+			res := w.Result()
+			defer res.Body.Close() // Закрываем тело ответа
+			// проверяем код ответа
+			assert.Equal(b, 200, res.StatusCode)
+			b.StartTimer()
 		}
 	}
 }

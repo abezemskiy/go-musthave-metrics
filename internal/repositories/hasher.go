@@ -7,12 +7,13 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/logger"
 	"go.uber.org/zap"
+
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/logger"
 )
 
+// CalkHash - подписывает данные body алгоритмом SHA-256 с помощью ключа key.
 func CalkHash(body []byte, key string) (string, error) {
-	// подписываем алгоритмом HMAC, используя SHA-256
 	h := hmac.New(sha256.New, []byte(key))
 	_, err := h.Write(body)
 	if err != nil {
@@ -25,6 +26,7 @@ func CalkHash(body []byte, key string) (string, error) {
 	return hashStr, nil
 }
 
+// CheckHash - проверяет корректность подписи.
 func CheckHash(body []byte, wantHash, key string) error {
 	logger.ServerLog.Debug("getting body and hash to check in CheckHash", zap.String("body", fmt.Sprintf("%x", body)), zap.String("hash", wantHash),
 		zap.String("key", key))
@@ -51,21 +53,24 @@ func CheckHash(body []byte, wantHash, key string) error {
 // HashWriter реализует интерфейс http.ResponseWriter и позволяет прозрачно для сервера
 // получить тело ответа для последующей подписи, если на сервере задан ключ
 type HashWriter struct {
-	w http.ResponseWriter
+	w   http.ResponseWriter
 	key string
 }
 
+// NewHashWriter - фабричная функция для создания структуры HashWriter.
 func NewHashWriter(w http.ResponseWriter, key string) *HashWriter {
 	return &HashWriter{
-		w: w,
+		w:   w,
 		key: key,
 	}
 }
 
+// HashWriter_Header - обертка над http.ResponseWriter_Header.
 func (h *HashWriter) Header() http.Header {
 	return h.w.Header()
 }
 
+// HashWriter_Write - обертка над http.ResponseWriter_Write.
 func (h *HashWriter) Write(p []byte) (int, error) {
 	hash, err := CalkHash(p, h.key)
 	if err != nil {
@@ -80,6 +85,7 @@ func (h *HashWriter) Write(p []byte) (int, error) {
 	return h.w.Write(p)
 }
 
+// HashWriter_WriteHeader - обертка над http.ResponseWriter_WriteHeader.
 func (h *HashWriter) WriteHeader(statusCode int) {
 	h.w.WriteHeader(statusCode)
 }

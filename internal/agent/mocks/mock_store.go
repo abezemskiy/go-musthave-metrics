@@ -8,8 +8,9 @@ import (
 	context "context"
 	reflect "reflect"
 
-	repositories "github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
 	gomock "github.com/golang/mock/gomock"
+
+	repositories "github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
 )
 
 // MockServerRepo is a mock of ServerRepo interface.

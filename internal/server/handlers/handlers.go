@@ -1,3 +1,4 @@
+// Packet handlers contain endpoints of interaction with service.
 package handlers
 
 import (
@@ -9,16 +10,18 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/logger"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
+
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/logger"
 )
 
 var (
 	tmpl *template.Template
 )
 
+// Парсин шаблона для вывода всех метрик в виде html страницы.
 func init() {
 	tmpl = template.Must(template.New("example").Parse(`
         <!DOCTYPE html>
@@ -34,12 +37,14 @@ func init() {
     `))
 }
 
+// OtherRequest - обработка нераспознанных http запросов к сервису.
 func OtherRequest(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Content-Type", "text/plain")
 	res.WriteHeader(http.StatusNotFound)
 }
 
-func GetGlobal(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
+// GetGlobal - возвращаю все хранящие на сервере метрики в виде html страницы.
+func GetGlobal(res http.ResponseWriter, req *http.Request, storage repositories.MetricsReader) {
 	res.Header().Set("Content-Type", "text/html")
 
 	// устанавливаю заголовок таким образом вместо WriteHeader(http.StatusOK), потому что
@@ -60,6 +65,7 @@ func GetGlobal(res http.ResponseWriter, req *http.Request, storage repositories.
 	}
 }
 
+// PingDatabase - проверка связи с базой данных.
 func PingDatabase(res http.ResponseWriter, req *http.Request, db *sql.DB) {
 	if err := db.PingContext(req.Context()); err != nil {
 		logger.ServerLog.Error("fail to ping database", zap.String("error", error.Error(err)))
@@ -69,7 +75,8 @@ func PingDatabase(res http.ResponseWriter, req *http.Request, db *sql.DB) {
 	res.WriteHeader(http.StatusOK)
 }
 
-func GetMetricJSON(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
+// GetMetricJSON - возвращает метрику в json представлении.
+func GetMetricJSON(res http.ResponseWriter, req *http.Request, storage repositories.MetricsReader) {
 	logger.ServerLog.Debug("In GetMetricJSON", zap.String("address", req.URL.String()))
 
 	res.Header().Set("Content-Type", "application/json")
@@ -126,7 +133,8 @@ func GetMetricJSON(res http.ResponseWriter, req *http.Request, storage repositor
 	}
 }
 
-func GetMetric(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
+// GetMetric - возвращает метрику в виде строки.
+func GetMetric(res http.ResponseWriter, req *http.Request, storage repositories.MetricsReader) {
 	logger.ServerLog.Debug("in GetMetric handler", zap.String("address", req.URL.String()))
 
 	res.Header().Set("Content-Type", "text/plan")
@@ -154,8 +162,8 @@ func GetMetric(res http.ResponseWriter, req *http.Request, storage repositories.
 	}
 }
 
-// Фнукция для обновления метрик через json батч, который является слайсом метрик
-func UpdateMetricsBatch(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
+// UpdateMetricsBatch - обновляет метрики через json батч, который является слайсом метрик.
+func UpdateMetricsBatch(res http.ResponseWriter, req *http.Request, storage repositories.MetricsWriter) {
 	// Проверка на nil для storage
 	if storage == nil {
 		http.Error(res, "Storage not initialized", http.StatusInternalServerError)
@@ -203,9 +211,9 @@ func UpdateMetricsBatch(res http.ResponseWriter, req *http.Request, storage repo
 		zap.String("HashSHA256", res.Header().Get("HashSHA256")))
 }
 
-// Фнукция для обновления метрик через json
-// Благодаря использованию роутера chi в этот хэндлер будут попадать только запросы POST
-func UpdateMetricsJSON(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
+// UpdateMetricsJSON - для обновления метрик через json.
+// Благодаря использованию роутера chi в этот хэндлер будут попадать только запросы POST.
+func UpdateMetricsJSON(res http.ResponseWriter, req *http.Request, storage repositories.MetricsWriter) {
 	// Проверка на nil для storage
 	if storage == nil {
 		http.Error(res, "Storage not initialized", http.StatusInternalServerError)
@@ -276,8 +284,8 @@ func UpdateMetricsJSON(res http.ResponseWriter, req *http.Request, storage repos
 		zap.String("Content-Type", res.Header().Get("Content-Type")))
 }
 
-// Благодаря использованию роутера chi в этот хэндлер будут попадать только запросы POST
-func UpdateMetrics(res http.ResponseWriter, req *http.Request, storage repositories.ServerRepo) {
+// UpdateMetrics - обновляет метрику на сервере. Параметры метрики извлекаются из http запроса.
+func UpdateMetrics(res http.ResponseWriter, req *http.Request, storage repositories.MetricsWriter) {
 
 	// Проверка на nil для storage
 	if storage == nil {
@@ -328,13 +336,15 @@ func UpdateMetrics(res http.ResponseWriter, req *http.Request, storage repositor
 	res.WriteHeader(http.StatusOK)
 }
 
-func GetGlobalHandler(stor repositories.ServerRepo) http.HandlerFunc {
+// GetGlobalHandler - обертка над GetGlobal для возможности установить хранилище метрик.
+func GetGlobalHandler(stor repositories.MetricsReader) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		GetGlobal(res, req, stor)
 	}
 	return fn
 }
 
+// PingDatabaseHandler - обертка над PingDatabase для возможности установить базу данных.
 func PingDatabaseHandler(db *sql.DB) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		PingDatabase(res, req, db)
@@ -342,41 +352,47 @@ func PingDatabaseHandler(db *sql.DB) http.HandlerFunc {
 	return fn
 }
 
-func UpdateMetricsBatchHandler(stor repositories.ServerRepo) http.HandlerFunc {
+// UpdateMetricsBatchHandler - обертка над UpdateMetricsBatch для возможности установить хранилище метрик.
+func UpdateMetricsBatchHandler(stor repositories.MetricsWriter) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		UpdateMetricsBatch(res, req, stor)
 	}
 	return fn
 }
 
-func UpdateMetricsJSONHandler(stor repositories.ServerRepo) http.HandlerFunc {
+// UpdateMetricsJSONHandler - обертка над UpdateMetricsJSON для возможности установить хранилище метрик.
+func UpdateMetricsJSONHandler(stor repositories.MetricsWriter) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		UpdateMetricsJSON(res, req, stor)
 	}
 	return fn
 }
 
-func UpdateMetricsHandler(stor repositories.ServerRepo) http.HandlerFunc {
+// UpdateMetricsHandler - обертка над UpdateMetrics для возможности установить хранилище метрик.
+func UpdateMetricsHandler(stor repositories.MetricsWriter) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		UpdateMetrics(res, req, stor)
 	}
 	return fn
 }
 
-func GetMetricJSONHandler(stor repositories.ServerRepo) http.HandlerFunc {
+// GetMetricJSONHandler - обертка над GetMetricJSON для возможности установить хранилище метрик.
+func GetMetricJSONHandler(stor repositories.MetricsReader) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		GetMetricJSON(res, req, stor)
 	}
 	return fn
 }
 
-func GetMetricHandler(stor repositories.ServerRepo) http.HandlerFunc {
+// GetMetricHandler - обертка над GetMetric для возможности установить хранилище метрик.
+func GetMetricHandler(stor repositories.MetricsReader) http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		GetMetric(res, req, stor)
 	}
 	return fn
 }
 
+// OtherRequestHandler - обертка над OtherRequest для возможности установить хранилище метрик.
 func OtherRequestHandler() http.HandlerFunc {
 	fn := func(res http.ResponseWriter, req *http.Request) {
 		OtherRequest(res, req)

@@ -21,9 +21,13 @@ var (
 	flagKey             string
 )
 
+// Определяют способ хранения метрик.
 const (
+	// SAVEINRAM устанавливает созранение метрик в оперативную память
 	SAVEINRAM = iota
+	// SAVEINRAM устанавливает созранение метрик в файл
 	SAVEINFILE
+	// SAVEINRAM устанавливает созранение метрик в базу данных
 	SAVEINDATABASE
 )
 

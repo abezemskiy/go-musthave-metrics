@@ -33,7 +33,7 @@ func main() {
 	defer db.Close()
 
 	// Создаю разные хранилища в зависимости от типа запуска сервера
-	var stor repositories.ServerRepo
+	var stor repositories.IStorage
 	if saveMode == SAVEINDATABASE {
 		// создаём соединение с СУБД PostgreSQL с помощью аргумента командной строки
 		conn, err := sql.Open("pgx", flagDatabaseDsn)
@@ -57,7 +57,7 @@ func main() {
 	}
 
 	// В случае запуска сервера в режиме сохранения метрик в файл
-	var saverVar saver.WriterInterface
+	var saverVar saver.FileWriter
 	if saveMode == SAVEINFILE {
 		// Для загрузки метрик из файла на сервер
 		var err error
@@ -80,13 +80,13 @@ func main() {
 	log.Println("Stop server")
 }
 
-// функция run будет полезна при инициализации зависимостей сервера перед запуском
-func run(stor repositories.ServerRepo, saverVar saver.WriterInterface, db *sql.DB, saveMode int) error {
+// run полезна при инициализации зависимостей сервера перед запуском.
+func run(stor repositories.IStorage, saverVar saver.FileWriter, db *sql.DB, saveMode int) error {
 	if err := logger.Initialize(flagLogLevel); err != nil {
 		return err
 	}
 
-	var reader saver.ReadInterface
+	var reader saver.FileReader
 	var err error
 	if saveMode == SAVEINFILE {
 		reader, err = saver.NewReader(saver.GetFilestoragePath())
@@ -109,7 +109,8 @@ func run(stor repositories.ServerRepo, saverVar saver.WriterInterface, db *sql.D
 	return http.ListenAndServe(flagNetAddr, MetricRouter(stor, db))
 }
 
-func MetricRouter(stor repositories.ServerRepo, db *sql.DB) chi.Router {
+// MetricRouter - дирежирует обработку http запросов к серверу.
+func MetricRouter(stor repositories.IStorage, db *sql.DB) chi.Router {
 
 	r := chi.NewRouter()
 
@@ -120,7 +121,8 @@ func MetricRouter(stor repositories.ServerRepo, db *sql.DB) chi.Router {
 		r.Post("/updates/", logger.RequestLogger(compress.GzipMiddleware(hasher.HashMiddleware(handlers.UpdateMetricsBatchHandler(stor)))))
 		r.Route("/update", func(r chi.Router) {
 			r.Post("/", logger.RequestLogger(compress.GzipMiddleware(hasher.HashMiddleware(handlers.UpdateMetricsJSONHandler(stor)))))
-			r.Post("/{metricType}/{metricName}/{metricValue}", logger.RequestLogger(compress.GzipMiddleware(hasher.HashMiddleware(handlers.UpdateMetricsHandler(stor)))))
+			r.Post("/{metricType}/{metricName}/{metricValue}", logger.RequestLogger(
+				compress.GzipMiddleware(hasher.HashMiddleware(handlers.UpdateMetricsHandler(stor)))))
 		})
 
 		r.Route("/value", func(r chi.Router) {
@@ -135,7 +137,8 @@ func MetricRouter(stor repositories.ServerRepo, db *sql.DB) chi.Router {
 	return r
 }
 
-func FlushMetricsToFile(stor repositories.ServerRepo, saverVar saver.WriterInterface) {
+// FlushMetricsToFile - сохраняет метрики в файл.
+func FlushMetricsToFile(stor repositories.MetricsReader, saverVar saver.FileWriter) {
 	logger.ServerLog.Debug("starting flush metrics to file")
 
 	sleepInterval := saver.GetStoreInterval() * time.Second

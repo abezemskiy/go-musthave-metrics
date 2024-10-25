@@ -6,10 +6,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/handlers"
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/logger"
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/storage"
 	"go.uber.org/zap"
+
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/logger"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/metrics/collecter"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/metrics/config"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/metrics/pusher"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/storage"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/worker"
 )
 
 func main() {
@@ -22,7 +26,7 @@ func main() {
 	}
 }
 
-// функция run будет полезна при инициализации зависимостей агента перед запуском
+// run - будет полезна при инициализации зависимостей агента перед запуском
 func run(metrics *storage.MetricsStats) error {
 	if err := logger.Initialize(flagLogLevel); err != nil {
 		return err
@@ -31,16 +35,16 @@ func run(metrics *storage.MetricsStats) error {
 	var wg sync.WaitGroup
 
 	logger.AgentLog.Info("Running agent", zap.String("address", flagNetAddr), zap.String("rateLimit", fmt.Sprintf("%d", *rateLimit)))
-	go handlers.CollectMetricsTimer(metrics, &wg)
+	go collecter.CollectWithTimer(metrics, &wg)
 	time.Sleep(50 * time.Millisecond)
 
 	// Размер буферизованного канала равен количеству количеству одновременно исходящих запросов
-	var pushTasks = make(chan handlers.Task, *rateLimit)
+	var pushTasks = make(chan worker.Task, *rateLimit)
 	go GeneratePushTasks(pushTasks, "http://"+flagNetAddr, "updates/", metrics, &wg)
 
 	// создаю и запускаю воркеры, это и есть пул
 	for w := 0; w < *rateLimit; w++ {
-		go handlers.PushWorker(pushTasks, &wg)
+		go worker.DoWork(pushTasks, &wg)
 		logger.AgentLog.Debug("start pushing worker", zap.String("worker", fmt.Sprintf("%d", w)))
 	}
 
@@ -48,14 +52,15 @@ func run(metrics *storage.MetricsStats) error {
 	return nil
 }
 
-func GeneratePushTasks(tasks chan<- handlers.Task, address, action string, metrics *storage.MetricsStats, wg *sync.WaitGroup) {
+// GeneratePushTasks - генерирует задачи для их выполнения пулом работников.
+func GeneratePushTasks(tasks chan<- worker.Task, address, action string, metrics *storage.MetricsStats, wg *sync.WaitGroup) {
 	wg.Add(1)
 	defer wg.Done()
 	defer close(tasks)
 
-	sleepInterval := handlers.GetReportInterval() * time.Second
+	sleepInterval := config.GetReportInterval() * time.Second
 	for {
-		tasks <- *handlers.NewTask(address, action, metrics, handlers.PushMetricsBatch)
+		tasks <- *worker.NewTask(address, action, metrics, pusher.PrepareAndPushBatch)
 		time.Sleep(sleepInterval)
 	}
 }

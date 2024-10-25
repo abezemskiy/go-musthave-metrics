@@ -8,23 +8,26 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/logger"
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
+
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/logger"
 )
 
 var key string
 
+// SetKey - устанавливает секретный ключ для подписи и расшифровки данных.
 func SetKey(k string) {
 	key = k
 }
 
+// GetKey - получает установленный секретный ключ.
 func GetKey() string {
 	return key
 }
 
-// HashMiddleware добавляет заголовок HashSHA256 с хэшем тела запроса
-// не использую, потому что необходимо, чтобы агент подписывал ещё нескомпресированные данные
+// HashMiddleware - добавляет заголовок HashSHA256 с хэшем тела запроса
+// не использую, потому что необходимо, чтобы агент подписывал ещё нескомпресированные данные.
 func HashMiddleware(c *resty.Client, r *resty.Request) error {
 	// ЕСли ключ не задан, то подписывать данные не нужно
 	if k := GetKey(); k == "" {
@@ -62,7 +65,7 @@ func HashMiddleware(c *resty.Client, r *resty.Request) error {
 	return nil
 }
 
-// VerifyHashMiddleware проверяет хэш тела ответа
+// VerifyHashMiddleware - проверяет хэш тела ответа
 func VerifyHashMiddleware(c *resty.Client, resp *resty.Response) error {
 	// ЕСли ключ не задан, то проверять подпись данных не нужно
 	if k := GetKey(); k == "" {
@@ -82,7 +85,7 @@ func VerifyHashMiddleware(c *resty.Client, resp *resty.Response) error {
 		return errors.New("missing HashSHA256 header in the response")
 	}
 	// Логирование заголовка
-	logger.AgentLog.Debug("Received HashSHA256 header and body", zap.String("header", serverHash), zap.String("body", fmt.Sprintf("%x",bodyBytes)))
+	logger.AgentLog.Debug("Received HashSHA256 header and body", zap.String("header", serverHash), zap.String("body", fmt.Sprintf("%x", bodyBytes)))
 
 	serverHashBytes, err := hex.DecodeString(serverHash)
 
