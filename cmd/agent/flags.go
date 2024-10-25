@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/handlers"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/hasher"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/metrics/config"
 )
 
 var (
@@ -66,7 +66,7 @@ func parseFlags() {
 		*rateLimit = val
 	}
 
-	handlers.SetReportInterval(time.Duration(*reportInterval))
-	handlers.SetPollInterval(time.Duration(*pollInterval))
+	config.SetReportInterval(time.Duration(*reportInterval))
+	config.SetPollInterval(time.Duration(*pollInterval))
 	hasher.SetKey(flagKey)
 }

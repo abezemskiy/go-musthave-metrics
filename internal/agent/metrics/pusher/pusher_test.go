@@ -1,8 +1,7 @@
-package handlers
+package pusher
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -18,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/errors/checker"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/mocks"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/compress"
@@ -276,7 +276,7 @@ func TestPushJSON(t *testing.T) {
 					client: resty.New(),
 				},
 				wantErr:            true,
-				checkErrorFunction: isConnectionRefused,
+				checkErrorFunction: checker.IsConnectionRefused,
 			},
 			{
 				name: "connection exception",
@@ -286,7 +286,7 @@ func TestPushJSON(t *testing.T) {
 					client: resty.New(),
 				},
 				wantErr:            true,
-				checkErrorFunction: isDBTransportError,
+				checkErrorFunction: checker.IsDBTransportError,
 			},
 			{
 				name: "EACCES",
@@ -296,7 +296,7 @@ func TestPushJSON(t *testing.T) {
 					client: resty.New(),
 				},
 				wantErr:            true,
-				checkErrorFunction: isFileLockedError,
+				checkErrorFunction: checker.IsFileLockedError,
 			},
 		}
 		for _, tt := range tests {
@@ -316,97 +316,6 @@ func TestPushJSON(t *testing.T) {
 				}
 			})
 		}
-	}
-}
-
-func TestBuildMetric(t *testing.T) {
-	deltaPointer := func(delta int64) *int64 {
-		return &delta
-	}
-	valuePointer := func(value float64) *float64 {
-		return &value
-	}
-	type args struct {
-		typeMetric  string
-		nameMetric  string
-		valueMetric string
-	}
-	tests := []struct {
-		name       string
-		args       args
-		wantMetric repositories.Metric
-		wantErr    bool
-	}{
-		{
-			name: "success counter1",
-			args: args{
-				typeMetric:  "counter",
-				nameMetric:  "counter1",
-				valueMetric: "95738",
-			},
-			wantMetric: repositories.Metric{
-				ID:    "counter1",
-				MType: "counter",
-				Delta: deltaPointer(95738),
-				Value: nil,
-			},
-			wantErr: false,
-		},
-		{
-			name: "error counter2",
-			args: args{
-				typeMetric:  "counter",
-				nameMetric:  "counter2",
-				valueMetric: "errorString",
-			},
-			wantMetric: repositories.Metric{},
-			wantErr:    true,
-		},
-		{
-			name: "success gauge1",
-			args: args{
-				typeMetric:  "gauge",
-				nameMetric:  "gauge1",
-				valueMetric: "95738.23598",
-			},
-			wantMetric: repositories.Metric{
-				ID:    "gauge1",
-				MType: "gauge",
-				Value: valuePointer(95738.23598),
-				Delta: nil,
-			},
-			wantErr: false,
-		},
-		{
-			name: "error gauge2",
-			args: args{
-				typeMetric:  "gauge",
-				nameMetric:  "gauge2",
-				valueMetric: "errorString",
-			},
-			wantMetric: repositories.Metric{},
-			wantErr:    true,
-		},
-		{
-			name: "error wrongType",
-			args: args{
-				typeMetric:  "wrongType",
-				nameMetric:  "counter1",
-				valueMetric: "95738",
-			},
-			wantMetric: repositories.Metric{},
-			wantErr:    true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotMetric, err := BuildMetric(tt.args.typeMetric, tt.args.nameMetric, tt.args.valueMetric)
-			if tt.wantErr == true {
-				require.Error(t, err)
-				return
-			}
-			assert.Equal(t, gotMetric, tt.wantMetric)
-		})
 	}
 }
 
@@ -479,7 +388,7 @@ func TestPushBatch(t *testing.T) {
 				client:       resty.New(),
 			},
 			wantErr:            true,
-			checkErrorFunction: isConnectionRefused,
+			checkErrorFunction: checker.IsConnectionRefused,
 		},
 		{
 			name: "connection exception",
@@ -489,7 +398,7 @@ func TestPushBatch(t *testing.T) {
 				client:       resty.New(),
 			},
 			wantErr:            true,
-			checkErrorFunction: isDBTransportError,
+			checkErrorFunction: checker.IsDBTransportError,
 		},
 		{
 			name: "EACCES",
@@ -499,7 +408,7 @@ func TestPushBatch(t *testing.T) {
 				client:       resty.New(),
 			},
 			wantErr:            true,
-			checkErrorFunction: isFileLockedError,
+			checkErrorFunction: checker.IsFileLockedError,
 		},
 	}
 	for _, tt := range tests {
@@ -517,193 +426,6 @@ func TestPushBatch(t *testing.T) {
 				require.Error(t, err)
 				assert.Equal(t, true, tt.checkErrorFunction(err))
 			}
-		})
-	}
-}
-
-func Test_isConnectionRefused(t *testing.T) {
-	connectionRefusedError := &net.OpError{
-		Op:  "dial",
-		Net: "tcp",
-		Err: &os.SyscallError{
-			Syscall: "connect",
-			Err:     syscall.ECONNREFUSED,
-		},
-	}
-
-	erroWrapped := fmt.Errorf("Is wrapped error %d %w", 1, connectionRefusedError)
-
-	tests := []struct {
-		name string
-		arg  error
-		want bool
-	}{
-		{
-			name: "success 1",
-			arg:  connectionRefusedError,
-			want: true,
-		},
-		{
-			name: "error 1",
-			arg:  nil,
-			want: false,
-		},
-		{
-			name: "success 2",
-			arg:  erroWrapped,
-			want: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := isConnectionRefused(tt.arg)
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
-func Test_isDBTransportError(t *testing.T) {
-	errConnectionDoesNotExist := &pgconn.PgError{
-		Code:    pgerrcode.ConnectionDoesNotExist,
-		Message: "connection does not exist",
-	}
-	errConnectionDoesNotExistWrapped := fmt.Errorf("Is wrapped error %d %w", 1, errConnectionDoesNotExist)
-
-	errConnectionFailure := &pgconn.PgError{
-		Code:    pgerrcode.ConnectionFailure,
-		Message: "connection failure",
-	}
-
-	errSQLClientUnableToEstablishSQLConnection := &pgconn.PgError{
-		Code:    pgerrcode.SQLClientUnableToEstablishSQLConnection,
-		Message: "SQL client unable to establish SQL connection",
-	}
-
-	errConnectionException := &pgconn.PgError{
-		Code:    pgerrcode.ConnectionException,
-		Message: "connection exception",
-	}
-
-	tests := []struct {
-		name string
-		arg  error
-		want bool
-	}{
-		{
-			name: "ConnectionDoesNotExist",
-			arg:  errConnectionDoesNotExist,
-			want: true,
-		},
-		{
-			name: "error 1",
-			arg:  nil,
-			want: false,
-		},
-		{
-			name: "ConnectionDoesNotExist wrapped",
-			arg:  errConnectionDoesNotExistWrapped,
-			want: true,
-		},
-		{
-			name: "ConnectionDoesNotExist string",
-			arg:  errConnectionDoesNotExist,
-			want: true,
-		},
-		{
-			name: "ConnectionFailure",
-			arg:  errConnectionFailure,
-			want: true,
-		},
-		{
-			name: "ConnectionFailure string",
-			arg:  errConnectionFailure,
-			want: true,
-		},
-		{
-			name: "SQLClientUnableToEstablishSQLConnection",
-			arg:  errSQLClientUnableToEstablishSQLConnection,
-			want: true,
-		},
-		{
-			name: "SQLClientUnableToEstablishSQLConnection",
-			arg:  errSQLClientUnableToEstablishSQLConnection,
-			want: true,
-		},
-		{
-			name: "ConnectionException",
-			arg:  errConnectionException,
-			want: true,
-		},
-		{
-			name: "ConnectionException",
-			arg:  errConnectionException,
-			want: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := isDBTransportError(tt.arg)
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
-func Test_isFileLockedError(t *testing.T) {
-	errEACCES := syscall.EACCES
-	erroEACCESWrapped := fmt.Errorf("Is wrapped error %d %w", 1, errEACCES)
-	errEROFS := syscall.EROFS
-	errPermission := os.ErrPermission
-
-	tests := []struct {
-		name string
-		arg  error
-		want bool
-	}{
-		{
-			name: "EACCES",
-			arg:  errEACCES,
-			want: true,
-		},
-		{
-			name: "error 1",
-			arg:  nil,
-			want: false,
-		},
-		{
-			name: "EACCESWrapped",
-			arg:  erroEACCESWrapped,
-			want: true,
-		},
-		{
-			name: "EACCES string",
-			arg:  errEACCES,
-			want: true,
-		},
-		{
-			name: "EROFS",
-			arg:  errEROFS,
-			want: true,
-		},
-		{
-			name: "EROFS string",
-			arg:  errEROFS,
-			want: true,
-		},
-		{
-			name: "Permission",
-			arg:  errPermission,
-			want: true,
-		},
-		{
-			name: "Permission string",
-			arg:  errPermission,
-			want: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := isFileLockedError(tt.arg)
-			assert.Equal(t, tt.want, got)
 		})
 	}
 }
