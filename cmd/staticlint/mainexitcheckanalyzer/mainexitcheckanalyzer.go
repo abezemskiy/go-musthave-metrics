@@ -2,6 +2,7 @@ package mainexitcheckanalyzer
 
 import (
 	"go/ast"
+	"strings"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -35,6 +36,12 @@ func isOsExitCalling(pass *analysis.Pass, call *ast.CallExpr) bool {
 // Основная функция анализа, которая запускается анализатором
 func run(pass *analysis.Pass) (interface{}, error) {
 	for _, file := range pass.Files {
+		// пропускаю файлы кэша, чтобы анализировать только исходные файлы
+		filename := pass.Fset.Position(file.Pos()).Filename
+		if strings.Contains(filename, "/.cache/go-build") {
+			continue
+		}
+
 		// Проходим по каждому узлу AST файла
 		ast.Inspect(file, func(node ast.Node) bool {
 			// Проверяем, что текущий узел — это определение функции
