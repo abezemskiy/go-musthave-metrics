@@ -1,3 +1,5 @@
+// пакет mainexitcheckanalyzer представляет собой статический анализатор, который
+// выявляет использование os.Exit в функции main.
 package mainexitcheckanalyzer
 
 import (
@@ -7,13 +9,14 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
+// MainExitCheckAnalyzer - экспортируемая переменная для использования анализатора.
 var MainExitCheckAnalyzer = &analysis.Analyzer{
 	Name: "mainexitcheck",
 	Doc:  "check for using os.Exit in main function",
 	Run:  run,
 }
 
-// isOsExitCalling проверяет, является ли вызов функцией os.Exit
+// isOsExitCalling - проверяет, является ли вызов функцией os.Exit.
 func isOsExitCalling(pass *analysis.Pass, call *ast.CallExpr) bool {
 	// Проверка, что вызов функции состоит из двух частей: os и Exit
 	if sel, ok := call.Fun.(*ast.SelectorExpr); ok {
@@ -33,7 +36,7 @@ func isOsExitCalling(pass *analysis.Pass, call *ast.CallExpr) bool {
 	return false
 }
 
-// Основная функция анализа, которая запускается анализатором
+// run - основная функция анализа, которая запускается анализатором.
 func run(pass *analysis.Pass) (interface{}, error) {
 	for _, file := range pass.Files {
 		// пропускаю файлы кэша, чтобы анализировать только исходные файлы

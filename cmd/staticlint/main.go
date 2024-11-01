@@ -17,10 +17,10 @@ import (
 	"honnef.co/go/tools/staticcheck"
 )
 
-// Config — имя файла конфигурации.
+// Config — имя файла конфигурации проверок staticcheck.
 const Config = `config.json`
 
-// ConfigData описывает структуру файла конфигурации.
+// ConfigData - описывает структуру файла конфигурации.
 type ConfigData struct {
 	Staticcheck []string
 }
