@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"sync"
 	"time"
 
@@ -17,6 +18,9 @@ import (
 )
 
 func main() {
+	// вывод глобальной информации о сборке
+	printGlobalInfo(os.Stdout)
+
 	parseFlags()
 
 	metrics := storage.NewMetricsStats()

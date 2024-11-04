@@ -11,7 +11,7 @@ main - основной пакет мультианализатора staticlint
 
 staticlint объединяет в себе такие анализаторы как:
 - mainexitcheckanalyzer
-- анализаторы из пакета golang.org/x/tools/go/analysis/passes
+- анализаторы из пакета golang.org/x/tools/go/analysis/passes bn
 - анализаторы из пакета honnef.co/go/tools/staticcheck
 */
 package main
