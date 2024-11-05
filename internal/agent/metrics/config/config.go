@@ -9,7 +9,7 @@ import (
 var (
 	pollInterval   time.Duration = 2
 	reportInterval time.Duration = 10
-	contextTimeout               = 500 * time.Millisecond
+	contextTimeout time.Duration = 500 * time.Millisecond
 )
 
 // SetPollInterval устанавливает интервал между сбором.

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCollectMetrics(t *testing.T) {
@@ -30,4 +31,19 @@ func TestCollectMetrics(t *testing.T) {
 			assert.Equal(t, tt.want, tt.arg.PollCount)
 		})
 	}
+}
+
+func TestGetMetricString(t *testing.T) {
+	metrics := NewMetricsStats()
+	metrics.CollectMetrics()
+	for _, metricName := range GaugeMetrics {
+		t.Run(metricName, func(t *testing.T) {
+			typeMetric, value, err := metrics.GetMetricString(metricName)
+			assert.Equal(t, typeMetric, "gauge")
+			assert.NotEqual(t, "", value)
+			require.NoError(t, err)
+		})
+	}
+	_, _, err := metrics.GetMetricString("wrong metric")
+	require.Error(t, err)
 }

@@ -49,7 +49,7 @@ type Task struct {
 	pushFunction PushFunction          // функция, непосредственно выполняющая отправку
 }
 
-// Task - фабричная функция структуры Task.
+// NewTask - фабричная функция структуры Task.
 func NewTask(address, action string, metrics *storage.MetricsStats, pushFunction PushFunction) *Task {
 	return &Task{
 		address:      address,
@@ -59,7 +59,7 @@ func NewTask(address, action string, metrics *storage.MetricsStats, pushFunction
 	}
 }
 
-// NewTask_DoPush - метод для выполнения задачи.
+// NewTask_Do - метод для выполнения задачи.
 func (t Task) Do() {
 	client := resty.New()
 	// Добавляем middleware для обработки ответа
