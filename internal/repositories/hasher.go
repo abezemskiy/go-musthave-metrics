@@ -65,12 +65,12 @@ func NewHashWriter(w http.ResponseWriter, key string) *HashWriter {
 	}
 }
 
-// HashWriter_Header - обертка над http.ResponseWriter_Header.
+// Header - обертка над http.ResponseWriter_Header.
 func (h *HashWriter) Header() http.Header {
 	return h.w.Header()
 }
 
-// HashWriter_Write - обертка над http.ResponseWriter_Write.
+// Write - обертка над http.ResponseWriter_Write.
 func (h *HashWriter) Write(p []byte) (int, error) {
 	hash, err := CalkHash(p, h.key)
 	if err != nil {
@@ -85,7 +85,7 @@ func (h *HashWriter) Write(p []byte) (int, error) {
 	return h.w.Write(p)
 }
 
-// HashWriter_WriteHeader - обертка над http.ResponseWriter_WriteHeader.
+// WriteHeader - обертка над http.ResponseWriter_WriteHeader.
 func (h *HashWriter) WriteHeader(statusCode int) {
 	h.w.WriteHeader(statusCode)
 }

@@ -42,7 +42,7 @@ type (
 	}
 )
 
-// Metric_String возвращает представление метрики в виде строки
+// String возвращает представление метрики в виде строки
 func (metrcic Metric) String() string {
 	var delta = "nil"
 	if metrcic.Delta != nil {

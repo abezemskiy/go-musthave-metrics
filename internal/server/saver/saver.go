@@ -86,7 +86,7 @@ func NewWriter(filename string) (*Writer, error) {
 	}, nil
 }
 
-// Writer_Close - метод закрытия.
+// Close - метод закрытия.
 func (storage *Writer) Close() error {
 	if err := storage.writer.Flush(); err != nil {
 		return err
@@ -94,7 +94,7 @@ func (storage *Writer) Close() error {
 	return storage.file.Close()
 }
 
-// Writer_WriteMetrics - сохраняю метрики из сервера в файл, причем предыдущее содержимое файла удаляю
+// WriteMetrics - сохраняю метрики из сервера в файл, причем предыдущее содержимое файла удаляю
 func (storage *Writer) WriteMetrics(metrics repositories.MetricsReader) error {
 	metricsSlice, err := metrics.GetAllMetricsSlice(context.Background())
 	if err != nil {
@@ -161,7 +161,7 @@ func NewReader(filename string) (*Reader, error) {
 	}, nil
 }
 
-// Reader_ReadMetrics - метод для чтения метрик из файла и записи их в слайс.
+// ReadMetrics - метод для чтения метрик из файла и записи их в слайс.
 func (saver *Reader) ReadMetrics() ([]repositories.Metric, error) {
 	var bufRead bytes.Buffer
 
