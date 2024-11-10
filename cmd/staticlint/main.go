@@ -25,19 +25,8 @@ type ConfigData struct {
 	Staticcheck []string
 }
 
-func main() {
-	appfile, err := os.Executable()
-	if err != nil {
-		panic(err)
-	}
-	data, err := os.ReadFile(filepath.Join(filepath.Dir(appfile), Config))
-	if err != nil {
-		panic(err)
-	}
-	var cfg ConfigData
-	if err = json.Unmarshal(data, &cfg); err != nil {
-		panic(err)
-	}
+// setupAnalyzers - функция для конфигурации анализаторов.
+func setupAnalyzers(cfg ConfigData) []*analysis.Analyzer {
 	mychecks := []*analysis.Analyzer{
 		mainexit.Analyzer,
 		printf.Analyzer,
@@ -56,8 +45,24 @@ func main() {
 			mychecks = append(mychecks, v.Analyzer)
 		}
 	}
+	return mychecks
+}
+
+func main() {
+	appfile, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+	data, err := os.ReadFile(filepath.Join(filepath.Dir(appfile), Config))
+	if err != nil {
+		panic(err)
+	}
+	var cfg ConfigData
+	if err = json.Unmarshal(data, &cfg); err != nil {
+		panic(err)
+	}
 
 	multichecker.Main(
-		mychecks...,
+		setupAnalyzers(cfg)...,
 	)
 }

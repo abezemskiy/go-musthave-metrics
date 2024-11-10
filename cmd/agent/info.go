@@ -15,6 +15,7 @@ var buildDate string
 // buildCommit - сообщение к сборке.
 var buildCommit string
 
+// printGlobalInfo - функция для вывода информации о сборке.
 func printGlobalInfo(output io.Writer) {
 	info.Build(output, buildVersion, buildDate, buildCommit)
 }

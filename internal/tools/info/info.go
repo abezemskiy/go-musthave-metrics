@@ -5,6 +5,7 @@ import (
 	"io"
 )
 
+// Build - функция для печати информации о сборке.
 func Build(output io.Writer, buildVersion, buildDate, buildCommit string) {
 	fmt.Fprint(output, "Build version: ")
 	if buildVersion == "" {
