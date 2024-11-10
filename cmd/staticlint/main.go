@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/AntonBezemskiy/go-musthave-metrics/cmd/staticlint/mainexitcheckanalyzer"
+	"github.com/AntonBezemskiy/go-musthave-metrics/cmd/staticlint/analyzers/mainexit"
 
 	"encoding/json"
 	"os"
@@ -39,7 +39,7 @@ func main() {
 		panic(err)
 	}
 	mychecks := []*analysis.Analyzer{
-		mainexitcheckanalyzer.MainExitCheckAnalyzer,
+		mainexit.Analyzer,
 		printf.Analyzer,
 		shadow.Analyzer,
 		structtag.Analyzer,

@@ -1,6 +1,6 @@
-// пакет mainexitcheckanalyzer представляет собой статический анализатор, который
+// пакет analyzer представляет собой статический анализатор, который
 // выявляет использование os.Exit в функции main.
-package mainexitcheckanalyzer
+package mainexit
 
 import (
 	"go/ast"
@@ -9,8 +9,8 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-// MainExitCheckAnalyzer - экспортируемая переменная для использования анализатора.
-var MainExitCheckAnalyzer = &analysis.Analyzer{
+// Analyzer - экспортируемая переменная для использования анализатора.
+var Analyzer = &analysis.Analyzer{
 	Name: "mainexitcheck",
 	Doc:  "check for using os.Exit in main function",
 	Run:  run,

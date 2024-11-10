@@ -1,4 +1,4 @@
-package mainexitcheckanalyzer
+package mainexit
 
 import (
 	"testing"
@@ -11,5 +11,5 @@ func TestMyAnalyzer(t *testing.T) {
 	// к пакетам из папки testdata и проверяет ожидания
 	// ./... — проверка всех поддиректорий в testdata
 	// можно указать ./pkg1 для проверки только pkg1
-	analysistest.Run(t, analysistest.TestData(), MainExitCheckAnalyzer, "./...")
+	analysistest.Run(t, analysistest.TestData(), Analyzer, "./...")
 }
