@@ -59,7 +59,7 @@ func NewTask(address, action string, metrics *storage.MetricsStats, pushFunction
 	}
 }
 
-// NewTask_Do - метод для выполнения задачи.
+// Do - метод для выполнения задачи.
 func (t Task) Do() {
 	client := resty.New()
 	// Добавляем middleware для обработки ответа
