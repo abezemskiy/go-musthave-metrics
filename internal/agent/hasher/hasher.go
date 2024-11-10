@@ -26,48 +26,9 @@ func GetKey() string {
 	return key
 }
 
-// HashMiddleware - добавляет заголовок HashSHA256 с хэшем тела запроса
-// не использую, потому что необходимо, чтобы агент подписывал ещё нескомпресированные данные.
-func HashMiddleware(c *resty.Client, r *resty.Request) error {
-	// ЕСли ключ не задан, то подписывать данные не нужно
-	if k := GetKey(); k == "" {
-		return nil
-	}
-
-	body := r.Body
-
-	// Преобразуем тело запроса в []byte, если оно не пустое
-	var bodyBytes []byte
-	switch v := body.(type) {
-	case string:
-		bodyBytes = []byte(v)
-	case []byte:
-		bodyBytes = v
-	default:
-		bodyBytes = []byte{}
-	}
-	logger.AgentLog.Debug("body for forwarding to server ", zap.String("body: ", fmt.Sprintf("%x", bodyBytes)))
-
-	// подписываем алгоритмом HMAC, используя SHA-256
-	h := hmac.New(sha256.New, []byte(GetKey()))
-	_, err := h.Write(bodyBytes)
-	if err != nil {
-		return err
-	}
-	hash := h.Sum(nil)
-	logger.AgentLog.Debug("calculate hash is ", zap.String("hash: ", fmt.Sprintf("%x", hash)))
-
-	// Преобразуем хэш в строку
-	hashStr := hex.EncodeToString(hash[:])
-
-	r.SetHeader("HashSHA256", hashStr)
-
-	return nil
-}
-
 // VerifyHashMiddleware - проверяет хэш тела ответа
 func VerifyHashMiddleware(c *resty.Client, resp *resty.Response) error {
-	// ЕСли ключ не задан, то проверять подпись данных не нужно
+	// Если ключ не задан, то проверять подпись данных не нужно
 	if k := GetKey(); k == "" {
 		return nil
 	}

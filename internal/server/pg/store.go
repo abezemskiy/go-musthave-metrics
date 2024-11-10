@@ -118,7 +118,7 @@ func (s Store) GetMetric(ctx context.Context, metricType string, metricName stri
 	return "", fmt.Errorf("whrong type of metric")
 }
 
-// Store_AddGauge - реализует метод AddGauge интерфейса repositories.ServerRepo.
+// AddGauge - реализует метод AddGauge интерфейса repositories.ServerRepo.
 func (s Store) AddGauge(ctx context.Context, nameMetric string, value float64) (err error) {
 	queryUpsert := `
 				INSERT INTO metrics (id, mtype, value)
@@ -135,7 +135,7 @@ func (s Store) AddGauge(ctx context.Context, nameMetric string, value float64) (
 	return err
 }
 
-// Store_AddCounter - реализует метод AddCounter интерфейса repositories.ServerRepo.
+// AddCounter - реализует метод AddCounter интерфейса repositories.ServerRepo.
 func (s Store) AddCounter(ctx context.Context, nameMetric string, value int64) (err error) {
 	queryUpsert := `
 				INSERT INTO metrics (id, mtype, delta)
@@ -152,7 +152,7 @@ func (s Store) AddCounter(ctx context.Context, nameMetric string, value int64) (
 	return err
 }
 
-// Store_GetAllMetrics - реализует метод GetAllMetrics интерфейса repositories.ServerRepo.
+// GetAllMetrics - реализует метод GetAllMetrics интерфейса repositories.ServerRepo.
 func (s Store) GetAllMetrics(ctx context.Context) (string, error) {
 	metrics, err := s.GetAllMetricsSlice(ctx)
 	if err != nil {
@@ -169,7 +169,7 @@ func (s Store) GetAllMetrics(ctx context.Context) (string, error) {
 	return result, nil
 }
 
-// Store_AddMetricsFromSlice - реализует метод AddMetricsFromSlice интерфейса repositories.ServerRepo.
+// AddMetricsFromSlice - реализует метод AddMetricsFromSlice интерфейса repositories.ServerRepo.
 func (s Store) AddMetricsFromSlice(ctx context.Context, metrics []repositories.Metric) error {
 	// запускаем транзакцию
 	tx, err := s.conn.BeginTx(ctx, nil)
@@ -220,7 +220,7 @@ func (s Store) AddMetricsFromSlice(ctx context.Context, metrics []repositories.M
 	return tx.Commit()
 }
 
-// Store_GetAllMetricsSlice - реализует метод GetAllMetricsSlice интерфейса repositories.ServerRepo.
+// GetAllMetricsSlice - реализует метод GetAllMetricsSlice интерфейса repositories.ServerRepo.
 func (s Store) GetAllMetricsSlice(ctx context.Context) ([]repositories.Metric, error) {
 	metrics := make([]repositories.Metric, 0)
 

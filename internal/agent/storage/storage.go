@@ -61,7 +61,7 @@ func collectExtraMetrics(ch chan<- map[string]float64) {
 	ch <- res
 }
 
-// MetricsStats_CollectMetrics - собирает метрики.
+// CollectMetrics - собирает метрики.
 func (metrics *MetricsStats) CollectMetrics() {
 	// Сбор дополнительных метрик в отдельной горутине
 	extraM := make(chan map[string]float64, 1)
@@ -96,7 +96,7 @@ func GetRandomMetricName() string {
 	return GaugeMetrics[randomIndex]
 }
 
-// MetricsStats_GetMetricString - возвращает тип и значение метрики в виде строки по имени метрики.
+// GetMetricString - возвращает тип и значение метрики в виде строки по имени метрики.
 func (metrics *MetricsStats) GetMetricString(name string) (typeMetric, value string, err error) {
 	switch name {
 	case "Alloc":

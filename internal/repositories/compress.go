@@ -26,7 +26,7 @@ func (c *CompressWriter) Header() http.Header {
 	return c.w.Header()
 }
 
-// CompressWriter_Write - запись ответа.
+// Write - запись ответа.
 func (c *CompressWriter) Write(p []byte) (int, error) {
 	// Устанавливаю заголовок о том, что данные сжаты, в основном на случай, когда в теле ответа будет содержаться ошибка
 	// и агенту нужно будет корректно распаковать полученное от сервера тело с ошибкой
@@ -35,7 +35,7 @@ func (c *CompressWriter) Write(p []byte) (int, error) {
 	return c.zw.Write(p)
 }
 
-// CompressWriter_WriteHeader - установка заголовка.
+// WriteHeader - установка заголовка.
 func (c *CompressWriter) WriteHeader(statusCode int) {
 	// Устанавливаю заголовок о том, что данные сжаты, в основном на случай, когда в теле ответа будет содержаться ошибка
 	// и агенту нужно будет корректно распаковать полученное от сервера тело с ошибкой
@@ -44,7 +44,7 @@ func (c *CompressWriter) WriteHeader(statusCode int) {
 	c.w.WriteHeader(statusCode)
 }
 
-// CompressWriter_Close закрывает gzip.Writer и досылает все данные из буфера.
+// Close закрывает gzip.Writer и досылает все данные из буфера.
 func (c *CompressWriter) Close() error {
 	return c.zw.Close()
 }
@@ -69,12 +69,12 @@ func NewCompressReader(r io.ReadCloser) (*CompressReader, error) {
 	}, nil
 }
 
-// CompressWriter_Read - метод чтения.
+// Read - метод чтения.
 func (c CompressReader) Read(p []byte) (n int, err error) {
 	return c.zr.Read(p)
 }
 
-// CompressReader_Close - обертка над gzip.Reader_Close.
+// Close - обертка над gzip.Reader_Close.
 func (c *CompressReader) Close() error {
 	if err := c.r.Close(); err != nil {
 		return err

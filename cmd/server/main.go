@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -23,6 +24,9 @@ import (
 )
 
 func main() {
+	// вывод глобальной информации о сборке
+	printGlobalInfo(os.Stdout)
+
 	saveMode := parseFlags()
 
 	// Подключение к базе данных
