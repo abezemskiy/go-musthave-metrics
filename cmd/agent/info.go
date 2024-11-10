@@ -1,8 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"io"
+
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/tools/info"
 )
 
 // buildVersion - версия сборки.
@@ -15,27 +16,5 @@ var buildDate string
 var buildCommit string
 
 func printGlobalInfo(output io.Writer) {
-	fmt.Fprint(output, "Build version: ")
-	if buildVersion == "" {
-		fmt.Fprint(output, "N/A")
-	} else {
-		fmt.Fprintf(output, "%s", buildVersion)
-	}
-	fmt.Fprint(output, "\n")
-
-	fmt.Fprint(output, "Build date: ")
-	if buildDate == "" {
-		fmt.Fprint(output, "N/A")
-	} else {
-		fmt.Fprintf(output, "%s", buildDate)
-	}
-	fmt.Fprint(output, "\n")
-
-	fmt.Fprint(output, "Build commit: ")
-	if buildCommit == "" {
-		fmt.Fprint(output, "N/A")
-	} else {
-		fmt.Fprintf(output, "%s", buildCommit)
-	}
-	fmt.Fprint(output, "\n")
+	info.Build(output, buildVersion, buildDate, buildCommit)
 }
