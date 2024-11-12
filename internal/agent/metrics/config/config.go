@@ -10,6 +10,8 @@ var (
 	pollInterval   time.Duration = 2
 	reportInterval time.Duration = 10
 	contextTimeout time.Duration = 500 * time.Millisecond
+	// cryptoKey - переменна, которая хранит адрес к приватному ключу для расшифровки данных от агента.
+	cryptoKey string
 )
 
 // SetPollInterval устанавливает интервал между сбором.
@@ -45,4 +47,14 @@ func GetContextTimeout() time.Duration {
 // SyncCollectMetrics - собирает метрики.
 func SyncCollectMetrics(metrics *storage.MetricsStats) {
 	metrics.CollectMetrics()
+}
+
+// SetCryptoKey - функция для установки пути к публичному ключу агента.
+func SetCryptoKey(key string) {
+	cryptoKey = key
+}
+
+// GetCryptoKey - функция для получения пути к публичному ключу агента.
+func GetCryptoKey() string {
+	return cryptoKey
 }

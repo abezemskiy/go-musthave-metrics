@@ -18,6 +18,7 @@ var (
 	flagLogLevel   string
 	flagKey        string
 	rateLimit      *int
+	cryptoKey      string
 )
 
 func parseFlags() {
@@ -28,6 +29,7 @@ func parseFlags() {
 	flag.StringVar(&flagLogLevel, "log", "info", "log level")
 	flag.StringVar(&flagKey, "k", "", "key for hashing data")
 	rateLimit = flag.Int("l", 1, "count of concurrent messages to server")
+	flag.StringVar(&cryptoKey, "crypto-key", "", "public key for asymmetric encryption")
 
 	flag.Parse()
 
@@ -64,6 +66,9 @@ func parseFlags() {
 			log.Fatalln("Environment variable \"POLL_INTERVAL\" must be int")
 		}
 		*rateLimit = val
+	}
+	if envCryptoKey := os.Getenv("CRYPTO_KEY"); envCryptoKey != "" {
+		cryptoKey = envCryptoKey
 	}
 
 	config.SetReportInterval(time.Duration(*reportInterval))

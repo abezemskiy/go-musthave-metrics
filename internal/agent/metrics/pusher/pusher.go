@@ -19,6 +19,7 @@ import (
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/metrics/config"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/storage"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/tools/encryption"
 )
 
 // Push - отправляет метрику на сервер в JSON формате и возвращает ошибку при неудаче.
@@ -42,6 +43,16 @@ func PushJSON(address, action, typeMetric, nameMetric, valueMetric string, clien
 	if err != nil {
 		logger.AgentLog.Error("Fail to comperess push data ", zap.String("error", error.Error(err)))
 		return err
+	}
+
+	// Шифрование сжатых данных если установлен путь к публичному ключу
+	publicKey := config.GetCryptoKey()
+	if publicKey != "" {
+		compressBody, err = encryption.EncryptData(publicKey, compressBody)
+		if err != nil {
+			logger.AgentLog.Error("fail to encode compressed data ", zap.String("error", error.Error(err)))
+			return err
+		}
 	}
 
 	// Подписываю данные отправляемые на сервер
@@ -156,6 +167,16 @@ func PushBatch(address, action string, metricsSlice []repositories.Metric, clien
 	if err != nil {
 		logger.AgentLog.Error("Fail to comperess push data ", zap.String("error", error.Error(err)))
 		return err
+	}
+
+	// Шифрование сжатых данных если установлен путь к публичному ключу
+	publicKey := config.GetCryptoKey()
+	if publicKey != "" {
+		compressBody, err = encryption.EncryptData(publicKey, compressBody)
+		if err != nil {
+			logger.AgentLog.Error("fail to encode compressed data ", zap.String("error", error.Error(err)))
+			return err
+		}
 	}
 
 	// Создаю контекст с таймаутом

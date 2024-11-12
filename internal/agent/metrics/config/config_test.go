@@ -47,3 +47,15 @@ func TestSyncCollectMetrics(t *testing.T) {
 	SyncCollectMetrics(metrics)
 	assert.NotEqual(t, storage.MetricsStats{}, metrics)
 }
+
+func TestSetCryptoKey(t *testing.T) {
+	cryptoKey = ""
+	newPath := "new/path/for/private/key.pem"
+	SetCryptoKey(newPath)
+	assert.Equal(t, newPath, cryptoKey)
+}
+
+func TestGetCryptoKey(t *testing.T) {
+	cryptoKey = "new/path/for/private/key.pem"
+	assert.Equal(t, cryptoKey, GetCryptoKey())
+}

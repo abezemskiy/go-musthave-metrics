@@ -19,6 +19,7 @@ var (
 	flagRestore         bool
 	flagDatabaseDsn     string
 	flagKey             string
+	flagCryptoKey       string
 )
 
 // Определяют способ хранения метрик.
@@ -41,6 +42,7 @@ func parseFlags() int {
 	// настройка флагов для хранения метрик в базе данных
 	flag.StringVar(&flagDatabaseDsn, "d", "", "database connection address") // host=localhost user=metrics password=metrics dbname=metricsdb  sslmode=disable
 	flag.StringVar(&flagKey, "k", "", "key for hashing data")
+	flag.StringVar(&flagCryptoKey, "crypto-key", "", "private key for asymmetric encryption")
 
 	flag.Parse()
 	flagStoreInterval = *flagStoreIntervalTemp
@@ -77,6 +79,9 @@ func parseFlags() int {
 	}
 	if envKey := os.Getenv("KEY"); envKey != "" {
 		flagKey = envKey
+	}
+	if envCryptoKey := os.Getenv("CRYPTO_KEY"); envCryptoKey != "" {
+		flagCryptoKey = envCryptoKey
 	}
 
 	saver.SetStoreInterval(time.Duration(flagStoreInterval))
