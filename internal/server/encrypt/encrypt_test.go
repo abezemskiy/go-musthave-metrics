@@ -55,7 +55,7 @@ func TestMiddleware(t *testing.T) {
 
 	// Success decryption test------------------------------
 	rnd := mathRand.New(mathRand.NewSource(103))
-	body := randomData(rnd, 128)
+	body := randomData(rnd, 256)
 	ecryptedData, err := encryption.EncryptData(pathKeys+"/public_key.pem", body)
 	require.NoError(t, err)
 

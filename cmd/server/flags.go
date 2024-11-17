@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bufio"
+	"encoding/json"
 	"flag"
 	"log"
 	"os"
 	"strconv"
 	"time"
 
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/hasher"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/saver"
 )
@@ -20,7 +23,18 @@ var (
 	flagDatabaseDsn     string
 	flagKey             string
 	flagCryptoKey       string
+	flagConfigFile      string
 )
+
+// configs представляет структуру конфигурации
+type configs struct {
+	Address       string                `json:"address"`        // аналог переменной окружения ADDRESS или флага -a
+	Restore       bool                  `json:"restore"`        // аналог переменной окружения RESTORE или флага -r
+	StoreInterval repositories.Duration `json:"store_interval"` // аналог переменной окружения STORE_INTERVAL или флага -i
+	StoreFile     string                `json:"store_file"`     // аналог переменной окружения FILE_STORAGE_PATH или -f
+	DatabaseDSN   string                `json:"database_dsn"`   // аналог переменной окружения DATABASE_DSN или флага -d
+	CryptoKey     string                `json:"crypto_key"`     // аналог переменной окружения CRYPTO_KEY или флага -crypto-key
+}
 
 // Определяют способ хранения метрик.
 const (
@@ -43,14 +57,34 @@ func parseFlags() int {
 	flag.StringVar(&flagDatabaseDsn, "d", "", "database connection address") // host=localhost user=metrics password=metrics dbname=metricsdb  sslmode=disable
 	flag.StringVar(&flagKey, "k", "", "key for hashing data")
 	flag.StringVar(&flagCryptoKey, "crypto-key", "", "private key for asymmetric encryption")
+	flag.StringVar(&flagConfigFile, "c", "", "name of configuration file")
 
 	flag.Parse()
 	flagStoreInterval = *flagStoreIntervalTemp
 	flagRestore = *flagRestoreTemp
 
-	// для случаев, когда в переменной окружения ADDRESS присутствует непустое значение,
-	// переопределим адрес запуска сервера,
-	// даже если он был передан через аргумент командной строки
+	// параметры конфигурации переопределяются глобальными переменными, даже если они были переданы через аргументы командной строки
+	parseEnvironment()
+
+	// параметры конфигурации переопределяются параметрами из файла конфигурции, даже если они были переданы через аргументы командной строки
+	// или глобальные переменные
+	parseConfigFile()
+
+	saver.SetStoreInterval(time.Duration(flagStoreInterval))
+	saver.SetFilestoragePath(flagFileStoragePath)
+	saver.SetRestore(flagRestore)
+	hasher.SetKey(flagKey)
+
+	if flagDatabaseDsn != "" {
+		return SAVEINDATABASE
+	} else if flagFileStoragePath != "" {
+		return SAVEINFILE
+	}
+	return SAVEINRAM
+}
+
+// parseEnvironment - функция для переопределения параметров конфигурации из глобальных переменных.
+func parseEnvironment() {
 	if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
 		flagNetAddr = envRunAddr
 	}
@@ -83,16 +117,34 @@ func parseFlags() int {
 	if envCryptoKey := os.Getenv("CRYPTO_KEY"); envCryptoKey != "" {
 		flagCryptoKey = envCryptoKey
 	}
-
-	saver.SetStoreInterval(time.Duration(flagStoreInterval))
-	saver.SetFilestoragePath(flagFileStoragePath)
-	saver.SetRestore(flagRestore)
-	hasher.SetKey(flagKey)
-
-	if flagDatabaseDsn != "" {
-		return SAVEINDATABASE
-	} else if flagFileStoragePath != "" {
-		return SAVEINFILE
+	if envConfigFile := os.Getenv("CONFIG"); envConfigFile != "" {
+		flagConfigFile = envConfigFile
 	}
-	return SAVEINRAM
+}
+
+// parseConfigFile - функция для переопределения параметров конфигурации из файла конфигурации.
+func parseConfigFile() {
+	// елси на указан файл конфигурации, то оставляю параметры запуска без изменения
+	if flagConfigFile == "" {
+		return
+	}
+	var configs configs
+	f, err := os.Open(flagConfigFile)
+	if err != nil {
+		log.Fatalf("Open cofiguration file error: %v\n", err)
+	}
+	reader := bufio.NewReader(f)
+	dec := json.NewDecoder(reader)
+	err = dec.Decode(&configs)
+	if err != nil {
+		log.Fatalf("Open cofiguration file error: %v\n", err)
+	}
+
+	// обновляю параметры запуска
+	flagNetAddr = configs.Address
+	flagRestore = configs.Restore
+	flagStoreInterval = int(configs.StoreInterval.Duration.Seconds())
+	flagFileStoragePath = configs.StoreFile
+	flagDatabaseDsn = configs.DatabaseDSN
+	flagCryptoKey = configs.CryptoKey
 }
