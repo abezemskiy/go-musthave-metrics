@@ -1,6 +1,7 @@
 package collecter
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -9,13 +10,18 @@ import (
 )
 
 // CollectWithTimer запускает сбор метрик через заданный интервал времени.
-func CollectWithTimer(metrics *storage.MetricsStats, wg *sync.WaitGroup) {
+func CollectWithTimer(ctx context.Context, metrics *storage.MetricsStats, wg *sync.WaitGroup) {
 	wg.Add(1)
 	defer wg.Done()
 
 	sleepInterval := config.GetPollInterval() * time.Second
 	for {
-		config.SyncCollectMetrics(metrics)
-		time.Sleep(sleepInterval)
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			config.SyncCollectMetrics(metrics)
+			time.Sleep(sleepInterval)
+		}
 	}
 }
