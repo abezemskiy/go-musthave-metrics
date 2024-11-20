@@ -3,13 +3,18 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
+	"fmt"
+	"html/template"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/go-chi/chi/v5"
@@ -19,6 +24,7 @@ import (
 	"golang.org/x/exp/rand"
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories/mocks"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/saver"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/storage"
 )
@@ -69,6 +75,164 @@ func TestOtherRequest(t *testing.T) {
 			defer res.Body.Close() // Закрываем тело ответа
 			// проверяем код ответа
 			assert.Equal(t, tt.want.code, res.StatusCode)
+		})
+	}
+}
+
+func TestGetGlobal(t *testing.T) {
+	normalizeHTML := func(html string) string {
+		return strings.Join(strings.Fields(html), " ")
+	}
+
+	// создаём контроллер
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	type contextKey string
+
+	m := mocks.NewMockMetricsReader(ctrl)
+
+	// successfull test
+	k1 := contextKey("success")
+	v1 := "1"
+	ctx1 := context.WithValue(context.Background(), k1, v1)
+
+	metrics := "metrcis_type_first: value_first\nmetrcis_type_second: value_second\ncounter: 1"
+	m.EXPECT().GetAllMetrics(ctx1).Return(metrics, nil)
+	// Проверяем тело ответа
+	expectedBody := `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>HTML Response</title>
+</head>
+<body>
+    <pre>metrcis_type_first: value_first
+metrcis_type_second: value_second
+counter: 1</pre>
+</body>
+</html>`
+
+	// failure test
+	k2 := contextKey("failure")
+	v2 := "2"
+	ctx2 := context.WithValue(context.Background(), k2, v2)
+	m.EXPECT().GetAllMetrics(ctx2).Return("", fmt.Errorf("something was wrong"))
+
+	// failure test2
+	k3 := contextKey("failure2")
+	v3 := "3"
+	ctx3 := context.WithValue(context.Background(), k3, v3)
+	m.EXPECT().GetAllMetrics(ctx3).Return("", fmt.Errorf("something was wrong"))
+
+	tests := []struct {
+		name           string
+		ctx            context.Context
+		wantBody       string
+		statusCode     int
+		wantChangeTmpl bool
+	}{
+		{
+			name:           "successfull get",
+			ctx:            ctx1,
+			wantBody:       strings.TrimSpace(expectedBody),
+			statusCode:     200,
+			wantChangeTmpl: false,
+		},
+		{
+			name:           "failure get",
+			ctx:            ctx2,
+			wantBody:       "",
+			statusCode:     500,
+			wantChangeTmpl: false,
+		},
+		{
+			name:           "failure get",
+			ctx:            ctx3,
+			wantBody:       strings.TrimSpace(expectedBody),
+			statusCode:     500,
+			wantChangeTmpl: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := chi.NewRouter()
+			r.Get("/test", func(res http.ResponseWriter, req *http.Request) {
+				req = req.WithContext(tt.ctx)
+				GetGlobal(res, req, m)
+			})
+
+			request := httptest.NewRequest(http.MethodGet, "/test", nil)
+
+			originalTmpl := tmpl
+			if tt.wantChangeTmpl {
+				tmpl = template.Must(template.New("test").Parse(`{{ .InvalidField }}`))
+			}
+			defer func() { tmpl = originalTmpl }()
+
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, request)
+
+			res := w.Result()
+			defer res.Body.Close() // Закрываем тело ответа
+			// проверяем код ответа
+			assert.Equal(t, tt.statusCode, res.StatusCode)
+
+			if tt.statusCode == 200 {
+				assert.Contains(t, res.Header.Get("Content-Type"), "text/html")
+
+				getBody, err := io.ReadAll(res.Body)
+				require.NoError(t, err)
+				defer res.Body.Close()
+
+				// Сравниваем обработанные документы
+				assert.Equal(t, normalizeHTML(tt.wantBody), normalizeHTML(string(getBody)))
+			} else {
+				assert.Contains(t, res.Header.Get("Content-Type"), "text/plain")
+			}
+		})
+	}
+}
+
+func TestPingDatabase(t *testing.T) {
+	// Подключение к базе данных
+	flagDatabaseDsn := "host=localhost user=benchmarkmetrics password=password dbname=benchmarkmetrics sslmode=disable"
+	db, err := sql.Open("pgx", flagDatabaseDsn)
+	require.NoError(t, err)
+	defer db.Close()
+
+	failureDB, _ := sql.Open("pgx", "host=wronghost user=benchmarkmetrics password=WRONGpassword dbname=benchmarkmetrics sslmode=disable")
+
+	tests := []struct {
+		name       string
+		db         *sql.DB
+		statusCode int
+	}{
+		{
+			name:       "successfull ping",
+			db:         db,
+			statusCode: 200,
+		},
+		{
+			name:       "failure ping",
+			db:         failureDB,
+			statusCode: 500,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := chi.NewRouter()
+			r.Get("/test", PingDatabaseHandler(tt.db))
+
+			request := httptest.NewRequest(http.MethodGet, "/test", nil)
+
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, request)
+
+			res := w.Result()
+			defer res.Body.Close() // Закрываем тело ответа
+			// проверяем код ответа
+			assert.Equal(t, tt.statusCode, res.StatusCode)
 		})
 	}
 }

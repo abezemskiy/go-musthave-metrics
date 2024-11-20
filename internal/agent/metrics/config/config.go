@@ -9,7 +9,7 @@ import (
 var (
 	pollInterval   time.Duration = 2
 	reportInterval time.Duration = 10
-	contextTimeout time.Duration = 500 * time.Millisecond
+	contextTimeout               = 500 * time.Millisecond
 	// cryptoKey - переменна, которая хранит адрес к приватному ключу для расшифровки данных от агента.
 	cryptoKey string
 )
