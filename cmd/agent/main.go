@@ -88,8 +88,7 @@ func GeneratePushTasks(ctx context.Context, tasks chan<- worker.Task, address, a
 		select {
 		case <-ctx.Done():
 			return
-		default:
-			tasks <- *worker.NewTask(address, action, metrics, pusher.PrepareAndPushBatch)
+		case tasks <- *worker.NewTask(address, action, metrics, pusher.PrepareAndPushBatch):
 			time.Sleep(sleepInterval)
 		}
 	}
