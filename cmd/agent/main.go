@@ -48,16 +48,19 @@ func run(metrics *storage.MetricsStats) error {
 	ctx, cancelCtx := context.WithTimeout(context.Background(), shutdownWaitPeriod)
 
 	logger.AgentLog.Info("Running agent", zap.String("address", flagNetAddr), zap.String("rateLimit", fmt.Sprintf("%d", *rateLimit)))
+	wg.Add(1)
 	go collecter.CollectWithTimer(ctx, metrics, &wg)
 	time.Sleep(50 * time.Millisecond)
 
 	// Размер буферизованного канала равен количеству количеству одновременно исходящих запросов
 	var pushTasks = make(chan worker.Task, *rateLimit)
+	wg.Add(1)
 	go GeneratePushTasks(ctx, pushTasks, "http://"+flagNetAddr, "updates/", metrics, &wg)
 
 	log.Printf("rateLimit is: %d\n", *rateLimit)
 	// создаю и запускаю воркеры, это и есть пул
 	for w := 0; w < *rateLimit; w++ {
+		wg.Add(1)
 		go worker.DoWork(pushTasks, &wg)
 		logger.AgentLog.Debug("start pushing worker", zap.String("worker", fmt.Sprintf("%d", w)))
 	}
@@ -79,7 +82,6 @@ func run(metrics *storage.MetricsStats) error {
 
 // GeneratePushTasks - генерирует задачи для их выполнения пулом работников.
 func GeneratePushTasks(ctx context.Context, tasks chan<- worker.Task, address, action string, metrics *storage.MetricsStats, wg *sync.WaitGroup) {
-	wg.Add(1)
 	defer wg.Done()
 	defer close(tasks)
 

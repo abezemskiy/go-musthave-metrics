@@ -71,7 +71,6 @@ func (t Task) Do() {
 
 // DoWork - принимает задачу из канала и выполняет её.
 func DoWork(pushTasks <-chan Task, wg *sync.WaitGroup) {
-	wg.Add(1)
 	defer wg.Done()
 
 	for pushTask := range pushTasks {
