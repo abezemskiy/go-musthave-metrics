@@ -20,6 +20,8 @@ import (
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/worker"
 )
 
+const shutdownWaitPeriod = 20 * time.Second // таймаут для graceful shutdown
+
 func main() {
 	// вывод глобальной информации о сборке
 	printGlobalInfo(os.Stdout)
@@ -42,7 +44,8 @@ func run(metrics *storage.MetricsStats) error {
 	// Добавляю многопоточность
 	var wg sync.WaitGroup
 
-	ctx, cancelCtx := context.WithCancel(context.Background()) // создаю контекст с отменой
+	// Create a context with timeout for graceful shutdown
+	ctx, cancelCtx := context.WithTimeout(context.Background(), shutdownWaitPeriod)
 
 	logger.AgentLog.Info("Running agent", zap.String("address", flagNetAddr), zap.String("rateLimit", fmt.Sprintf("%d", *rateLimit)))
 	go collecter.CollectWithTimer(ctx, metrics, &wg)
