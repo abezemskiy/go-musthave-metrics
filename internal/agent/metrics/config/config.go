@@ -1,9 +1,14 @@
 package config
 
 import (
+	"bufio"
+	"encoding/json"
+	"fmt"
+	"os"
 	"time"
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/storage"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
 )
 
 var (
@@ -13,6 +18,14 @@ var (
 	// cryptoKey - переменна, которая хранит адрес к приватному ключу для расшифровки данных от агента.
 	cryptoKey string
 )
+
+// Configs представляет структуру конфигурации
+type Configs struct {
+	Address        string                `json:"address"`         // аналог переменной окружения ADDRESS или флага -a
+	ReportInterval repositories.Duration `json:"report_interval"` // аналог переменной окружения REPORT_INTERVAL или флага -r
+	PollInterval   repositories.Duration `json:"poll_interval"`   // аналог переменной окружения POLL_INTERVAL или флага -p
+	CryptoKey      string                `json:"crypto_key"`      // аналог переменной окружения CRYPTO_KEY или флага -crypto-key
+}
 
 // SetPollInterval устанавливает интервал между сбором.
 func SetPollInterval(interval time.Duration) {
@@ -57,4 +70,21 @@ func SetCryptoKey(key string) {
 // GetCryptoKey - функция для получения пути к публичному ключу агента.
 func GetCryptoKey() string {
 	return cryptoKey
+}
+
+// ParseConfigFile - функция для переопределения параметров конфигурации из файла конфигурации.
+func ParseConfigFile(configFileName string) (Configs, error) {
+	var configs Configs
+	f, err := os.Open(configFileName)
+	if err != nil {
+		return Configs{}, fmt.Errorf("open cofiguration file error: %w", err)
+	}
+	reader := bufio.NewReader(f)
+	dec := json.NewDecoder(reader)
+	err = dec.Decode(&configs)
+	if err != nil {
+		return Configs{}, fmt.Errorf("parse cofiguration file error: %w", err)
+	}
+
+	return configs, nil
 }

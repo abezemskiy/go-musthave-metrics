@@ -1,15 +1,13 @@
 package main
 
 import (
-	"bufio"
-	"encoding/json"
 	"flag"
 	"log"
 	"os"
 	"strconv"
 	"time"
 
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/config"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/hasher"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/saver"
 )
@@ -25,16 +23,6 @@ var (
 	flagCryptoKey       string
 	flagConfigFile      string
 )
-
-// configs представляет структуру конфигурации
-type configs struct {
-	Address       string                `json:"address"`        // аналог переменной окружения ADDRESS или флага -a
-	Restore       bool                  `json:"restore"`        // аналог переменной окружения RESTORE или флага -r
-	StoreInterval repositories.Duration `json:"store_interval"` // аналог переменной окружения STORE_INTERVAL или флага -i
-	StoreFile     string                `json:"store_file"`     // аналог переменной окружения FILE_STORAGE_PATH или -f
-	DatabaseDSN   string                `json:"database_dsn"`   // аналог переменной окружения DATABASE_DSN или флага -d
-	CryptoKey     string                `json:"crypto_key"`     // аналог переменной окружения CRYPTO_KEY или флага -crypto-key
-}
 
 // Определяют способ хранения метрик.
 const (
@@ -124,20 +112,13 @@ func parseEnvironment() {
 
 // parseConfigFile - функция для переопределения параметров конфигурации из файла конфигурации.
 func parseConfigFile() {
-	// елси на указан файл конфигурации, то оставляю параметры запуска без изменения
+	// если не указан файл конфигурации, то оставляю параметры запуска без изменения
 	if flagConfigFile == "" {
 		return
 	}
-	var configs configs
-	f, err := os.Open(flagConfigFile)
+	configs, err := config.ParseConfigFile(flagConfigFile)
 	if err != nil {
-		log.Fatalf("Open cofiguration file error: %v\n", err)
-	}
-	reader := bufio.NewReader(f)
-	dec := json.NewDecoder(reader)
-	err = dec.Decode(&configs)
-	if err != nil {
-		log.Fatalf("Open cofiguration file error: %v\n", err)
+		log.Fatalf("parse config file error: %v\n", err)
 	}
 
 	// обновляю параметры запуска

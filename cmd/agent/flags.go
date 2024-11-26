@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bufio"
-	"encoding/json"
 	"flag"
 	"log"
 	"os"
@@ -11,7 +9,6 @@ import (
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/hasher"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/metrics/config"
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
 )
 
 var (
@@ -24,14 +21,6 @@ var (
 	cryptoKey      string
 	flagConfigFile string
 )
-
-// configs представляет структуру конфигурации
-type configs struct {
-	Address        string                `json:"address"`         // аналог переменной окружения ADDRESS или флага -a
-	ReportInterval repositories.Duration `json:"report_interval"` // аналог переменной окружения REPORT_INTERVAL или флага -r
-	PollInterval   repositories.Duration `json:"poll_interval"`   // аналог переменной окружения POLL_INTERVAL или флага -p
-	CryptoKey      string                `json:"crypto_key"`      // аналог переменной окружения CRYPTO_KEY или флага -crypto-key
-}
 
 func parseFlags() {
 	flag.StringVar(&flagNetAddr, "a", ":8080", "address and port to run server")
@@ -107,16 +96,9 @@ func parseConfigFile() {
 	if flagConfigFile == "" {
 		return
 	}
-	var configs configs
-	f, err := os.Open(flagConfigFile)
+	configs, err := config.ParseConfigFile(flagConfigFile)
 	if err != nil {
-		log.Fatalf("Open cofiguration file error: %v\n", err)
-	}
-	reader := bufio.NewReader(f)
-	dec := json.NewDecoder(reader)
-	err = dec.Decode(&configs)
-	if err != nil {
-		log.Fatalf("Open cofiguration file error: %v\n", err)
+		log.Fatalf("parse config file error: %v\n", err)
 	}
 
 	// обновляю параметры запуска
