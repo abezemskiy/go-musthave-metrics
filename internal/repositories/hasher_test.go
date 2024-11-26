@@ -1,6 +1,8 @@
 package repositories
 
 import (
+	mathRand "math/rand"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -236,4 +238,80 @@ func TestCheckHash(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewHashWriter(t *testing.T) {
+	// Создаю поддельный http.ResponseWriter
+	mockResponseWriter := httptest.NewRecorder()
+
+	expectedKey := "testKey"
+
+	hashWriter := NewHashWriter(mockResponseWriter, expectedKey)
+
+	// Проверяю, что структура инициализирована корректно
+	if hashWriter.w != mockResponseWriter {
+		t.Errorf("Expected ResponseWriter to be %v, but got %v", mockResponseWriter, hashWriter.w)
+	}
+	assert.Equal(t, mockResponseWriter, hashWriter.w)
+	assert.Equal(t, expectedKey, hashWriter.key)
+}
+
+func TestHashWriter_Header(t *testing.T) {
+	mockResponseWriter := httptest.NewRecorder()
+	expectedKey := "testKey"
+
+	headerKey := "first header"
+	headerValue := "first value"
+	mockResponseWriter.Header().Add(headerKey, headerValue)
+
+	hashWriter := NewHashWriter(mockResponseWriter, expectedKey)
+	header := hashWriter.Header()
+	assert.Equal(t, headerValue, header.Get(headerKey))
+}
+
+func TestTestHashWriter_Write(t *testing.T) {
+	// функция для генерации тестового тела
+	randomData := func(rnd *mathRand.Rand, n int) []byte {
+		b := make([]byte, n)
+		_, err := rnd.Read(b)
+		require.NoError(t, err)
+		return b
+	}
+
+	mockResponseWriter := httptest.NewRecorder()
+	key := "testKey"
+
+	hashWriter := NewHashWriter(mockResponseWriter, key)
+
+	rnd := mathRand.New(mathRand.NewSource(79))
+	testBody := randomData(rnd, 256)
+
+	n, err := hashWriter.Write(testBody)
+	assert.Equal(t, len(testBody), n)
+	require.NoError(t, err)
+
+	// вычисляю хэш вручную для проверки
+	hashOfTestBody, err := CalkHash(testBody, key)
+	require.NoError(t, err)
+
+	// получаю хэш полученный при записи данных
+	header := hashWriter.Header()
+	getHash := header.Get("HashSHA256")
+
+	// сравниваю хэши
+	assert.Equal(t, hashOfTestBody, getHash)
+}
+
+func TestTestHashWriter_WriteHeader(t *testing.T) {
+	mockResponseWriter := httptest.NewRecorder()
+	key := "testKey"
+	hashWriter := NewHashWriter(mockResponseWriter, key)
+
+	wantHeader := 400
+	hashWriter.WriteHeader(wantHeader)
+
+	res := mockResponseWriter.Result()
+	res.Body.Close()
+
+	assert.Equal(t, wantHeader, res.StatusCode)
 }
