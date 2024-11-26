@@ -23,6 +23,7 @@ import (
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/pg"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/storage"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/tools/encryption"
 )
 
 func testRequest(t *testing.T, ts *httptest.Server, method, path string) *http.Response {
@@ -219,6 +220,17 @@ func TestMusthaveMetrics(t *testing.T) {
 		return port, nil
 	}
 
+	// функция для очистки файлов с ключами
+	removeFile := func(file string) {
+		err := os.Remove(file)
+		require.NoError(t, err)
+	}
+
+	// генирирую ключи для ассиметричного шифрования
+	pathKeys := "."
+	err := encryption.GenerateKeys(pathKeys)
+	require.NoError(t, err)
+
 	key := "secret key"
 	var done = make(chan struct{})
 	var wg sync.WaitGroup
@@ -233,7 +245,7 @@ func TestMusthaveMetrics(t *testing.T) {
 
 	// Запускаю server-----------------------------------------------------
 	cmdServer := exec.Command("./server", fmt.Sprintf("-a=%s", serverAdress),
-		fmt.Sprintf("-k=%s", key), fmt.Sprintf("-d=%s", databaseDsn), "-l=info")
+		fmt.Sprintf("-k=%s", key), fmt.Sprintf("-d=%s", databaseDsn), "-l=info", fmt.Sprintf("-crypto-key=%s", pathKeys+"/private_key.pem"))
 	// Связываем стандартный вывод и ошибки программы с выводом программы Go
 	cmdServer.Stdout = log.Writer()
 	cmdServer.Stderr = log.Writer()
@@ -259,7 +271,8 @@ func TestMusthaveMetrics(t *testing.T) {
 	agentPort, err := getFreePort()
 	require.NoError(t, err)
 	agentAdress := fmt.Sprintf("localhost:%d", agentPort)
-	cmdAgent := exec.Command("./../agent/agent", fmt.Sprintf("-a=%s", agentAdress), fmt.Sprintf("-k=%s", key), fmt.Sprintf("-r=%d", 5))
+	cmdAgent := exec.Command("./../agent/agent", fmt.Sprintf("-a=%s", agentAdress), fmt.Sprintf("-k=%s", key), fmt.Sprintf("-r=%d", 5),
+		fmt.Sprintf("-crypto-key=%s", pathKeys+"/public_key.pem"))
 	// Связываем стандартный вывод и ошибки программы с выводом программы Go
 	cmdAgent.Stdout = log.Writer()
 	cmdAgent.Stderr = log.Writer()
@@ -300,4 +313,7 @@ func TestMusthaveMetrics(t *testing.T) {
 	if err := pprof.WriteHeapProfile(fmem); err != nil {
 		panic(err)
 	}
+
+	defer removeFile(pathKeys + "/private_key.pem")
+	defer removeFile(pathKeys + "/public_key.pem")
 }

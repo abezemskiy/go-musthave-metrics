@@ -314,3 +314,26 @@ func TestMemStorageGetAllMetrics(t *testing.T) {
 		})
 	}
 }
+
+func TestMemStorage_Bootstrap(t *testing.T) {
+	stor := NewDefaultMemStorage()
+	ctx := context.Background()
+	require.NoError(t, stor.Bootstrap(ctx))
+}
+
+func TestMemStorage_Clean(t *testing.T) {
+	stor := NewDefaultMemStorage()
+	ctx := context.Background()
+
+	err := stor.AddCounter(ctx, "first counter", 3252)
+	require.NoError(t, err)
+
+	err = stor.AddGauge(ctx, "first gauge", 785723.3242)
+	require.NoError(t, err)
+	stor.Clean(ctx)
+
+	_, err = stor.GetMetric(ctx, "counter", "first counter")
+	require.Error(t, err)
+	_, err = stor.GetMetric(ctx, "gauge", "first gauge")
+	require.Error(t, err)
+}

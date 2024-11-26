@@ -44,6 +44,16 @@ func PushJSON(address, action, typeMetric, nameMetric, valueMetric string, clien
 		return err
 	}
 
+	// Шифрование сжатых данных если установлен путь к публичному ключу
+	crypto := config.GetCryptoGrapher()
+	if crypto.PublicKeyIsSet() {
+		compressBody, err = crypto.Encrypt(compressBody)
+		if err != nil {
+			logger.AgentLog.Error("fail to encode compressed data ", zap.String("error", error.Error(err)))
+			return err
+		}
+	}
+
 	// Подписываю данные отправляемые на сервер
 	// Делаю не через middleware, чтобы агент подписывал именно нескомпресированный ответ
 	hash, err := repositories.CalkHash(bufEncode.Bytes(), hasher.GetKey())
@@ -156,6 +166,16 @@ func PushBatch(address, action string, metricsSlice []repositories.Metric, clien
 	if err != nil {
 		logger.AgentLog.Error("Fail to comperess push data ", zap.String("error", error.Error(err)))
 		return err
+	}
+
+	// Шифрование сжатых данных если установлен путь к публичному ключу
+	crypto := config.GetCryptoGrapher()
+	if crypto.PublicKeyIsSet() {
+		compressBody, err = crypto.Encrypt(compressBody)
+		if err != nil {
+			logger.AgentLog.Error("fail to encode compressed data ", zap.String("error", error.Error(err)))
+			return err
+		}
 	}
 
 	// Создаю контекст с таймаутом

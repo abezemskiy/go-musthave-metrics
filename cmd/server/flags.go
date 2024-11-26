@@ -7,8 +7,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/config"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/encrypt"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/hasher"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/saver"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/tools/encryption"
 )
 
 var (
@@ -19,6 +22,8 @@ var (
 	flagRestore         bool
 	flagDatabaseDsn     string
 	flagKey             string
+	flagCryptoKey       string
+	flagConfigFile      string
 )
 
 // Определяют способ хранения метрик.
@@ -41,14 +46,36 @@ func parseFlags() int {
 	// настройка флагов для хранения метрик в базе данных
 	flag.StringVar(&flagDatabaseDsn, "d", "", "database connection address") // host=localhost user=metrics password=metrics dbname=metricsdb  sslmode=disable
 	flag.StringVar(&flagKey, "k", "", "key for hashing data")
+	flag.StringVar(&flagCryptoKey, "crypto-key", "", "private key for asymmetric encryption")
+	flag.StringVar(&flagConfigFile, "c", "", "name of configuration file")
 
 	flag.Parse()
 	flagStoreInterval = *flagStoreIntervalTemp
 	flagRestore = *flagRestoreTemp
 
-	// для случаев, когда в переменной окружения ADDRESS присутствует непустое значение,
-	// переопределим адрес запуска сервера,
-	// даже если он был передан через аргумент командной строки
+	// параметры конфигурации переопределяются глобальными переменными, даже если они были переданы через аргументы командной строки
+	parseEnvironment()
+
+	// параметры конфигурации переопределяются параметрами из файла конфигурции, даже если они были переданы через аргументы командной строки
+	// или глобальные переменные
+	parseConfigFile()
+
+	saver.SetStoreInterval(time.Duration(flagStoreInterval))
+	saver.SetFilestoragePath(flagFileStoragePath)
+	saver.SetRestore(flagRestore)
+	hasher.SetKey(flagKey)
+	encrypt.SetCryptoGrapher(encryption.Initialize("", flagCryptoKey))
+
+	if flagDatabaseDsn != "" {
+		return SAVEINDATABASE
+	} else if flagFileStoragePath != "" {
+		return SAVEINFILE
+	}
+	return SAVEINRAM
+}
+
+// parseEnvironment - функция для переопределения параметров конфигурации из глобальных переменных.
+func parseEnvironment() {
 	if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
 		flagNetAddr = envRunAddr
 	}
@@ -78,16 +105,30 @@ func parseFlags() int {
 	if envKey := os.Getenv("KEY"); envKey != "" {
 		flagKey = envKey
 	}
-
-	saver.SetStoreInterval(time.Duration(flagStoreInterval))
-	saver.SetFilestoragePath(flagFileStoragePath)
-	saver.SetRestore(flagRestore)
-	hasher.SetKey(flagKey)
-
-	if flagDatabaseDsn != "" {
-		return SAVEINDATABASE
-	} else if flagFileStoragePath != "" {
-		return SAVEINFILE
+	if envCryptoKey := os.Getenv("CRYPTO_KEY"); envCryptoKey != "" {
+		flagCryptoKey = envCryptoKey
 	}
-	return SAVEINRAM
+	if envConfigFile := os.Getenv("CONFIG"); envConfigFile != "" {
+		flagConfigFile = envConfigFile
+	}
+}
+
+// parseConfigFile - функция для переопределения параметров конфигурации из файла конфигурации.
+func parseConfigFile() {
+	// если не указан файл конфигурации, то оставляю параметры запуска без изменения
+	if flagConfigFile == "" {
+		return
+	}
+	configs, err := config.ParseConfigFile(flagConfigFile)
+	if err != nil {
+		log.Fatalf("parse config file error: %v\n", err)
+	}
+
+	// обновляю параметры запуска
+	flagNetAddr = configs.Address
+	flagRestore = configs.Restore
+	flagStoreInterval = int(configs.StoreInterval.Duration.Seconds())
+	flagFileStoragePath = configs.StoreFile
+	flagDatabaseDsn = configs.DatabaseDSN
+	flagCryptoKey = configs.CryptoKey
 }

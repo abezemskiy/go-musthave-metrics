@@ -9,6 +9,7 @@ import (
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/hasher"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/metrics/config"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/tools/encryption"
 )
 
 var (
@@ -18,6 +19,8 @@ var (
 	flagLogLevel   string
 	flagKey        string
 	rateLimit      *int
+	cryptoKey      string
+	flagConfigFile string
 )
 
 func parseFlags() {
@@ -28,12 +31,28 @@ func parseFlags() {
 	flag.StringVar(&flagLogLevel, "log", "info", "log level")
 	flag.StringVar(&flagKey, "k", "", "key for hashing data")
 	rateLimit = flag.Int("l", 1, "count of concurrent messages to server")
+	flag.StringVar(&cryptoKey, "crypto-key", "", "public key for asymmetric encryption")
+	flag.StringVar(&flagConfigFile, "c", "", "name of configuration file")
 
 	flag.Parse()
 
 	// для случаев, когда в переменной окружения ADDRESS присутствует непустое значение,
 	// переопределим адрес агента,
 	// даже если он был передан через аргумент командной строки
+	parseEnvironment()
+
+	// параметры конфигурации переопределяются параметрами из файла конфигурции, даже если они были переданы через аргументы командной строки
+	// или глобальные переменные
+	parseConfigFile()
+
+	config.SetReportInterval(time.Duration(*reportInterval))
+	config.SetPollInterval(time.Duration(*pollInterval))
+	hasher.SetKey(flagKey)
+	config.SetCryptoGrapher(encryption.Initialize(cryptoKey, ""))
+}
+
+// parseEnvironment - функция для переопределения параметров конфигурации из глобальных переменных.
+func parseEnvironment() {
 	if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
 		flagNetAddr = envRunAddr
 	}
@@ -65,8 +84,28 @@ func parseFlags() {
 		}
 		*rateLimit = val
 	}
+	if envCryptoKey := os.Getenv("CRYPTO_KEY"); envCryptoKey != "" {
+		cryptoKey = envCryptoKey
+	}
+	if envConfigFile := os.Getenv("CONFIG"); envConfigFile != "" {
+		flagConfigFile = envConfigFile
+	}
+}
 
-	config.SetReportInterval(time.Duration(*reportInterval))
-	config.SetPollInterval(time.Duration(*pollInterval))
-	hasher.SetKey(flagKey)
+// parseConfigFile - функция для переопределения параметров конфигурации из файла конфигурации.
+func parseConfigFile() {
+	// елси на указан файл конфигурации, то оставляю параметры запуска без изменения
+	if flagConfigFile == "" {
+		return
+	}
+	configs, err := config.ParseConfigFile(flagConfigFile)
+	if err != nil {
+		log.Fatalf("parse config file error: %v\n", err)
+	}
+
+	// обновляю параметры запуска
+	flagNetAddr = configs.Address
+	*reportInterval = int(configs.ReportInterval.Duration.Seconds())
+	*pollInterval = int(configs.PollInterval.Duration.Seconds())
+	cryptoKey = configs.CryptoKey
 }

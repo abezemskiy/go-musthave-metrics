@@ -1,12 +1,16 @@
 package config
 
 import (
+	"fmt"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/storage"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/tools/encryption"
 )
 
 func TestSetPollInterval(t *testing.T) {
@@ -46,4 +50,48 @@ func TestSyncCollectMetrics(t *testing.T) {
 	metrics := &storage.MetricsStats{}
 	SyncCollectMetrics(metrics)
 	assert.NotEqual(t, storage.MetricsStats{}, metrics)
+}
+
+func TestSetCryptoGrapher(t *testing.T) {
+	crypto := encryption.Initialize("/path/to/public/key", "/path/to/private/key")
+	SetCryptoGrapher(crypto)
+
+	assert.Equal(t, crypto.PublicKeyIsSet(), cryptoGrapher.PublicKeyIsSet())
+}
+
+func TestGetCryptoKey(t *testing.T) {
+	crypto := encryption.Initialize("/path/to/public/key", "/path/to/private/key")
+	cryptoGrapher = *crypto
+
+	getCrypto := GetCryptoGrapher()
+	assert.Equal(t, crypto.PublicKeyIsSet(), getCrypto.PublicKeyIsSet())
+}
+
+func TestParseConfigFile(t *testing.T) {
+	testFlagNetAddr := "localhost:8081"
+	testReportInterval := 21
+	testPollInterval := 3
+	testFlagCryptoKey := "test crypto key"
+
+	createFile := func(name string) {
+		data := fmt.Sprintf("{\"address\": \"%s\",\"report_interval\": \"%ds\",\"poll_interval\": \"%ds\",\"crypto_key\": \"%s\"}",
+			testFlagNetAddr, testReportInterval, testPollInterval, testFlagCryptoKey)
+		f, err := os.Create(name)
+		require.NoError(t, err)
+		_, err = f.Write([]byte(data))
+		require.NoError(t, err)
+	}
+	nameFile := "./test_config.json"
+	createFile(nameFile)
+
+	configs, err := ParseConfigFile(nameFile)
+	require.NoError(t, err)
+
+	assert.Equal(t, testFlagNetAddr, configs.Address)
+	assert.Equal(t, testReportInterval, int(configs.ReportInterval.Seconds()))
+	assert.Equal(t, testPollInterval, int(configs.PollInterval.Seconds()))
+	assert.Equal(t, testFlagCryptoKey, configs.CryptoKey)
+
+	err = os.Remove(nameFile)
+	require.NoError(t, err)
 }
