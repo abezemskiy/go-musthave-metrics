@@ -15,6 +15,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestInitialize(t *testing.T) {
+	publicKey := "/path/to/public/key"
+	privateKey := "/path/to/private/key"
+
+	crypto := *Initialize(publicKey, privateKey)
+	assert.Equal(t, publicKey, crypto.publicKeyPath)
+	assert.Equal(t, privateKey, crypto.privateKeyPath)
+}
+
 func TestParsePublicKey(t *testing.T) {
 	// функция для очистки файлов с ключами
 	removeFile := func(file string) {
@@ -216,7 +225,7 @@ func TestGenerateKeys(t *testing.T) {
 	}
 }
 
-func TestEncryptData(t *testing.T) {
+func TestCryptographer_Encrypt(t *testing.T) {
 	// функция для очистки файлов с ключами
 	removeFile := func(file string) {
 		err := os.Remove(file)
@@ -250,13 +259,16 @@ func TestEncryptData(t *testing.T) {
 		rnd := mathRand.New(mathRand.NewSource(77))
 		data := randomData(rnd, 256)
 
+		crypto := Cryptographer{
+			publicKeyPath: pathKeys + "/public_key.pem",
+		}
+
 		// шифровка данных
-		encryptData, err := EncryptData(pathKeys+"/public_key.pem", data)
+		encryptData, err := crypto.Encrypt(data)
 		require.NoError(t, err)
 
 		// расшифровка данных
 		decypherData := decypherData(pathKeys+"/private_key.pem", encryptData)
-		require.NoError(t, err)
 
 		// проверка равенства изночальных данных и зашифрованных
 		assert.Equal(t, data, decypherData)
@@ -267,11 +279,15 @@ func TestEncryptData(t *testing.T) {
 	}
 	// попытка зашифровать данные с ключом по неверному адресу
 	{
+		crypto := Cryptographer{
+			publicKeyPath: "wrong/path" + "/public_key.pem",
+		}
+
 		rnd := mathRand.New(mathRand.NewSource(79))
 		data := randomData(rnd, 256)
 
 		// шифровка данных
-		_, err := EncryptData("wrong/path"+"/public_key.pem", data)
+		_, err := crypto.Encrypt(data)
 		require.Error(t, err)
 	}
 	// попытка зашифровать пустые данные
@@ -280,8 +296,12 @@ func TestEncryptData(t *testing.T) {
 		err := GenerateKeys(pathKeys)
 		require.NoError(t, err)
 
+		crypto := Cryptographer{
+			publicKeyPath: pathKeys + "/public_key.pem",
+		}
+
 		// шифровка данных
-		_, err = EncryptData(pathKeys+"/public_key.pem", nil)
+		_, err = crypto.Encrypt(nil)
 		require.Error(t, err)
 
 		// очистка тестовых файлов
@@ -305,15 +325,19 @@ func TestEncryptData(t *testing.T) {
 		rnd = mathRand.New(mathRand.NewSource(87))
 		data := randomData(rnd, 256)
 
+		crypto := Cryptographer{
+			publicKeyPath: pathKeys + "/public_key.pem",
+		}
+
 		// шифровка данных
-		_, err = EncryptData(pathKeys+"/public_key.pem", data)
+		_, err = crypto.Encrypt(data)
 		require.Error(t, err)
 
 		removeFile(pathKeys + "/public_key.pem")
 	}
 }
 
-func TestDecryptData(t *testing.T) {
+func TestCryptographer_Decrypt(t *testing.T) {
 	// функция для очистки файлов с ключами
 	removeFile := func(file string) {
 		err := os.Remove(file)
@@ -348,11 +372,15 @@ func TestDecryptData(t *testing.T) {
 		rnd := mathRand.New(mathRand.NewSource(91))
 		data := randomData(rnd, 256)
 
+		crypto := Cryptographer{
+			privateKeyPath: pathKeys + "/private_key.pem",
+		}
+
 		// шифровка данных
 		encryptData := encryptData(pathKeys+"/public_key.pem", data)
 
 		// расшифровка данных
-		decypherData, err := DecryptData(pathKeys+"/private_key.pem", encryptData)
+		decypherData, err := crypto.Decrypt(encryptData)
 		require.NoError(t, err)
 
 		// проверка равенства изночальных данных и расшифрованных
@@ -371,11 +399,15 @@ func TestDecryptData(t *testing.T) {
 		rnd := mathRand.New(mathRand.NewSource(93))
 		data := randomData(rnd, 256)
 
+		crypto := Cryptographer{
+			privateKeyPath: "wrong/path" + "/private_key.pem",
+		}
+
 		// шифровка данных
 		encryptData := encryptData(pathKeys+"/public_key.pem", data)
 
 		// попытка расшифровки данных ключом по неверному адресу
-		_, err = DecryptData("wrong/path"+"/private_key.pem", encryptData)
+		_, err = crypto.Decrypt(encryptData)
 		require.Error(t, err)
 
 		// очистка тестовых файлов
@@ -388,8 +420,12 @@ func TestDecryptData(t *testing.T) {
 		err := GenerateKeys(pathKeys)
 		require.NoError(t, err)
 
+		crypto := Cryptographer{
+			privateKeyPath: pathKeys + "/private_key.pem",
+		}
+
 		// расшифровка данных
-		_, err = DecryptData(pathKeys+"/private_key.pem", nil)
+		_, err = crypto.Decrypt(nil)
 		require.Error(t, err)
 
 		// очистка тестовых файлов
@@ -413,10 +449,42 @@ func TestDecryptData(t *testing.T) {
 		rnd = mathRand.New(mathRand.NewSource(87))
 		data := randomData(rnd, 256)
 
+		crypto := Cryptographer{
+			privateKeyPath: pathKeys + "/private_key.pem",
+		}
+
 		// шифровка данных
-		_, err = DecryptData(pathKeys+"/private_key.pem", data)
+		_, err = crypto.Decrypt(data)
 		require.Error(t, err)
 
 		removeFile(pathKeys + "/private_key.pem")
+	}
+}
+
+func TestCryptographer_PublicKeyIsSet(t *testing.T) {
+	{
+		publicKey := "/public/key/is/set"
+		c := Cryptographer{
+			publicKeyPath: publicKey,
+		}
+		assert.Equal(t, true, c.PublicKeyIsSet())
+	}
+	{
+		c := Cryptographer{}
+		assert.Equal(t, false, c.PublicKeyIsSet())
+	}
+}
+
+func TestCryptographer_PrivateKeyIsSet(t *testing.T) {
+	{
+		privateKey := "/private/key/is/set"
+		c := Cryptographer{
+			privateKeyPath: privateKey,
+		}
+		assert.Equal(t, true, c.PrivateKeyIsSet())
+	}
+	{
+		c := Cryptographer{}
+		assert.Equal(t, false, c.PrivateKeyIsSet())
 	}
 }

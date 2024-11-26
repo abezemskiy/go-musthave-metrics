@@ -9,14 +9,14 @@ import (
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/storage"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/tools/encryption"
 )
 
 var (
-	pollInterval   time.Duration = 2
-	reportInterval time.Duration = 10
-	contextTimeout               = 500 * time.Millisecond
-	// cryptoKey - переменна, которая хранит адрес к приватному ключу для расшифровки данных от агента.
-	cryptoKey string
+	pollInterval   time.Duration            = 2
+	reportInterval time.Duration            = 10
+	contextTimeout                          = 500 * time.Millisecond
+	cryptoGrapher  encryption.Cryptographer // переменная, которая хранит структуру шифрования и расшифровки.
 )
 
 // Configs представляет структуру конфигурации
@@ -62,14 +62,14 @@ func SyncCollectMetrics(metrics *storage.MetricsStats) {
 	metrics.CollectMetrics()
 }
 
-// SetCryptoKey - функция для установки пути к публичному ключу агента.
-func SetCryptoKey(key string) {
-	cryptoKey = key
+// SetCryptoGrapher - функция для установки структуры шифрования и расшифровки.
+func SetCryptoGrapher(c *encryption.Cryptographer) {
+	cryptoGrapher = *c
 }
 
-// GetCryptoKey - функция для получения пути к публичному ключу агента.
-func GetCryptoKey() string {
-	return cryptoKey
+// GetCryptoGrapher - функция для получения структуры шифрования и расшифровки.
+func GetCryptoGrapher() encryption.Cryptographer {
+	return cryptoGrapher
 }
 
 // ParseConfigFile - функция для переопределения параметров конфигурации из файла конфигурации.

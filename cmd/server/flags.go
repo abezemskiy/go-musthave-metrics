@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/config"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/encrypt"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/hasher"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/saver"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/tools/encryption"
 )
 
 var (
@@ -62,6 +64,7 @@ func parseFlags() int {
 	saver.SetFilestoragePath(flagFileStoragePath)
 	saver.SetRestore(flagRestore)
 	hasher.SetKey(flagKey)
+	encrypt.SetCryptoGrapher(encryption.Initialize("", flagCryptoKey))
 
 	if flagDatabaseDsn != "" {
 		return SAVEINDATABASE

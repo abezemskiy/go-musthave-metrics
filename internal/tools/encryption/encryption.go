@@ -11,6 +11,80 @@ import (
 	"os"
 )
 
+// Cryptographer - структура хранящая приватный и публичный ключи шифрования с методами для шифровки и расшифровки данных.
+type Cryptographer struct {
+	publicKeyPath  string
+	privateKeyPath string
+}
+
+// Initialize инициализирует синглтон структуры шифрования с публичным и приватным ключом.
+func Initialize(publicKeyPath, privateKeyPath string) *Cryptographer {
+	return &Cryptographer{
+		publicKeyPath:  publicKeyPath,
+		privateKeyPath: privateKeyPath,
+	}
+}
+
+// Encrypt шифрует данные, используя публичный ключ.
+func (c *Cryptographer) Encrypt(data []byte) ([]byte, error) {
+	if len(data) == 0 {
+		return nil, fmt.Errorf("empty data for encrypt is error")
+	}
+
+	// Парсинг публичного ключа
+	rsaPubKey, err := ParsePublicKey(c.publicKeyPath)
+	if err != nil {
+		return nil, fmt.Errorf("read public key error: %w", err)
+	}
+
+	// Шифрование данных с использованием RSA с заполнением OAEP (Optimal Asymmetric Encryption Padding)
+	encryptedData, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, rsaPubKey, data, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return encryptedData, nil
+}
+
+// Decrypt расшифровывает данные, используя приватный ключ.
+func (c *Cryptographer) Decrypt(data []byte) ([]byte, error) {
+	if len(data) == 0 {
+		return nil, fmt.Errorf("empty data for decypher is error")
+	}
+
+	// Парсинг приватного ключа
+	privKey, err := ParsePrivateKey(c.privateKeyPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Расшифровка данных с использованием RSA с заполнением OAEP (Optimal Asymmetric Encryption Padding)
+	decryptedData, err := rsa.DecryptOAEP(sha256.New(), rand.Reader, privKey, data, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return decryptedData, nil
+}
+
+// PublicKeyIsSet - функция для определения того, что задан ли публичный ключ шифрования
+func (c *Cryptographer) PublicKeyIsSet() bool {
+	if c.publicKeyPath != "" {
+		return true
+	} else {
+		return false
+	}
+}
+
+// PrivateKeyIsSet - функция для определения того, что задан ли приватный ключ шифрования
+func (c *Cryptographer) PrivateKeyIsSet() bool {
+	if c.privateKeyPath != "" {
+		return true
+	} else {
+		return false
+	}
+}
+
 // GenerateKeys генерирует и сохраняет пару RSA-ключей
 // private_key.pem - приватный ключ, public_key.pem - публичный ключ.
 func GenerateKeys(savePath string) error {
@@ -58,48 +132,6 @@ func GenerateKeys(savePath string) error {
 	}
 
 	return nil
-}
-
-// EncryptData шифрует данные, используя публичный ключ.
-func EncryptData(publicKeyPath string, data []byte) ([]byte, error) {
-	if len(data) == 0 {
-		return nil, fmt.Errorf("empty data for encrypt is error")
-	}
-
-	// Парсинг публичного ключа
-	rsaPubKey, err := ParsePublicKey(publicKeyPath)
-	if err != nil {
-		return nil, fmt.Errorf("read public key error: %w", err)
-	}
-
-	// Шифрование данных с использованием RSA с заполнением OAEP (Optimal Asymmetric Encryption Padding)
-	encryptedData, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, rsaPubKey, data, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return encryptedData, nil
-}
-
-// DecryptData расшифровывает данные, используя приватный ключ.
-func DecryptData(privateKeyPath string, encryptedData []byte) ([]byte, error) {
-	if len(encryptedData) == 0 {
-		return nil, fmt.Errorf("empty data for decypher is error")
-	}
-
-	// Парсинг приватного ключа
-	privKey, err := ParsePrivateKey(privateKeyPath)
-	if err != nil {
-		return nil, err
-	}
-
-	// Расшифровка данных с использованием RSA с заполнением OAEP (Optimal Asymmetric Encryption Padding)
-	decryptedData, err := rsa.DecryptOAEP(sha256.New(), rand.Reader, privKey, encryptedData, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return decryptedData, nil
 }
 
 // ParsePublicKey парсит публичный ключ из файла.

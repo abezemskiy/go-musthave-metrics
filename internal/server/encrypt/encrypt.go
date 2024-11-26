@@ -8,19 +8,19 @@ import (
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/tools/encryption"
 )
 
-// cryptoKey - переменна, которая хранит адрес к приватному ключу для расшифровки данных от агента.
-var cryptoKey string
+// переменная, которая хранит структуру шифрования и расшифровки
+var cryptoGrapher encryption.Cryptographer
 
-// SetCryptoKey - функция для установки пути к приватному ключу сервера
-func SetCryptoKey(key string) {
-	cryptoKey = key
+// SetCryptoGrapher - функция для установки структуры шифрования и расшифровки данных
+func SetCryptoGrapher(c *encryption.Cryptographer) {
+	cryptoGrapher = *c
 }
 
 // Middleware - мидлварь, которая расшифровывает данные от агента.
 func Middleware(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// если установлен адрес к приватному ключу предполагается, что используется шифрование данных
-		if cryptoKey != "" {
+		if cryptoGrapher.PrivateKeyIsSet() {
 			// Чтение зашифрованного тела запроса
 			encryptedData, err := io.ReadAll(r.Body)
 			if err != nil {
@@ -29,7 +29,7 @@ func Middleware(h http.HandlerFunc) http.HandlerFunc {
 			}
 			defer r.Body.Close()
 
-			decryptedData, err := encryption.DecryptData(cryptoKey, encryptedData)
+			decryptedData, err := cryptoGrapher.Decrypt(encryptedData)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				return

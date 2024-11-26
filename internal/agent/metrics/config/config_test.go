@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/storage"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/tools/encryption"
 )
 
 func TestSetPollInterval(t *testing.T) {
@@ -51,16 +52,19 @@ func TestSyncCollectMetrics(t *testing.T) {
 	assert.NotEqual(t, storage.MetricsStats{}, metrics)
 }
 
-func TestSetCryptoKey(t *testing.T) {
-	cryptoKey = ""
-	newPath := "new/path/for/private/key.pem"
-	SetCryptoKey(newPath)
-	assert.Equal(t, newPath, cryptoKey)
+func TestSetCryptoGrapher(t *testing.T) {
+	crypto := encryption.Initialize("/path/to/public/key", "/path/to/private/key")
+	SetCryptoGrapher(crypto)
+
+	assert.Equal(t, crypto.PublicKeyIsSet(), cryptoGrapher.PublicKeyIsSet())
 }
 
 func TestGetCryptoKey(t *testing.T) {
-	cryptoKey = "new/path/for/private/key.pem"
-	assert.Equal(t, cryptoKey, GetCryptoKey())
+	crypto := encryption.Initialize("/path/to/public/key", "/path/to/private/key")
+	cryptoGrapher = *crypto
+
+	getCrypto := GetCryptoGrapher()
+	assert.Equal(t, crypto.PublicKeyIsSet(), getCrypto.PublicKeyIsSet())
 }
 
 func TestParseConfigFile(t *testing.T) {

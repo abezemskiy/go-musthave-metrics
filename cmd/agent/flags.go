@@ -9,6 +9,7 @@ import (
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/hasher"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/metrics/config"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/tools/encryption"
 )
 
 var (
@@ -47,6 +48,7 @@ func parseFlags() {
 	config.SetReportInterval(time.Duration(*reportInterval))
 	config.SetPollInterval(time.Duration(*pollInterval))
 	hasher.SetKey(flagKey)
+	config.SetCryptoGrapher(encryption.Initialize(cryptoKey, ""))
 }
 
 // parseEnvironment - функция для переопределения параметров конфигурации из глобальных переменных.

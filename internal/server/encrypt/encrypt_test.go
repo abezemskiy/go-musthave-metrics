@@ -16,11 +16,11 @@ import (
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/tools/encryption"
 )
 
-func TestSetCryptoKey(t *testing.T) {
-	cryptoKey = ""
-	newPath := "new/path/for/private/key.pem"
-	SetCryptoKey(newPath)
-	assert.Equal(t, newPath, cryptoKey)
+func TestSetCryptoGrapher(t *testing.T) {
+	crypto := encryption.Initialize("/path/to/public/key", "/path/to/private/key")
+	SetCryptoGrapher(crypto)
+
+	assert.Equal(t, crypto.PublicKeyIsSet(), cryptoGrapher.PublicKeyIsSet())
 }
 
 func TestMiddleware(t *testing.T) {
@@ -53,14 +53,14 @@ func TestMiddleware(t *testing.T) {
 	err := encryption.GenerateKeys(pathKeys)
 	require.NoError(t, err)
 
+	// Создаю струткуру с ключами шифрования
+	SetCryptoGrapher(encryption.Initialize(pathKeys+"/public_key.pem", pathKeys+"/private_key.pem"))
+
 	// Success decryption test------------------------------
 	rnd := mathRand.New(mathRand.NewSource(103))
 	body := randomData(rnd, 256)
-	ecryptedData, err := encryption.EncryptData(pathKeys+"/public_key.pem", body)
+	ecryptedData, err := cryptoGrapher.Encrypt(body)
 	require.NoError(t, err)
-
-	// Устанавливаю путь к приватному ключу сервера
-	SetCryptoKey(pathKeys + "/private_key.pem")
 
 	type want struct {
 		decryptedData []byte
