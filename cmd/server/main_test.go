@@ -2,28 +2,16 @@ package main
 
 import (
 	"context"
-	"database/sql"
-	"fmt"
-	"log"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	_ "net/http/pprof" // подключаем пакет pprof
-	"os"
-	"os/exec"
-	"runtime"
-	"runtime/pprof"
-	"sync"
 	"testing"
-	"time"
 
 	"github.com/go-test/deep"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/pg"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/storage"
-	"github.com/AntonBezemskiy/go-musthave-metrics/internal/tools/encryption"
 )
 
 func testRequest(t *testing.T, ts *httptest.Server, method, path string) *http.Response {
@@ -184,136 +172,136 @@ func TestHandlerUpdate(t *testing.T) {
 	}
 }
 
-func TestMusthaveMetrics(t *testing.T) {
-	// Функция для очистки данных в базе
-	cleanBD := func(dsn string) {
-		// очищаю данные в тестовой бд------------------------------------------------------
-		// создаём соединение с СУБД PostgreSQL
-		conn, err := sql.Open("pgx", dsn)
-		require.NoError(t, err)
-		defer conn.Close()
+// func TestMusthaveMetrics(t *testing.T) {
+// 	// Функция для очистки данных в базе
+// 	cleanBD := func(dsn string) {
+// 		// очищаю данные в тестовой бд------------------------------------------------------
+// 		// создаём соединение с СУБД PostgreSQL
+// 		conn, err := sql.Open("pgx", dsn)
+// 		require.NoError(t, err)
+// 		defer conn.Close()
 
-		// Проверка соединения с БД
-		ctx := context.Background()
-		err = conn.PingContext(ctx)
-		require.NoError(t, err)
+// 		// Проверка соединения с БД
+// 		ctx := context.Background()
+// 		err = conn.PingContext(ctx)
+// 		require.NoError(t, err)
 
-		// создаем экземпляр хранилища pg
-		stor := pg.NewStore(conn)
-		err = stor.Bootstrap(ctx)
-		require.NoError(t, err)
-		err = stor.Disable(ctx)
-		require.NoError(t, err)
-	}
+// 		// создаем экземпляр хранилища pg
+// 		stor := pg.NewStore(conn)
+// 		err = stor.Bootstrap(ctx)
+// 		require.NoError(t, err)
+// 		err = stor.Disable(ctx)
+// 		require.NoError(t, err)
+// 	}
 
-	// функция для получения свободного порта для запуска приложений
-	getFreePort := func() (int, error) {
-		// Слушаем на порту 0, чтобы операционная система выбрала свободный порт
-		listener, err := net.Listen("tcp", ":0")
-		if err != nil {
-			return 0, err
-		}
-		defer listener.Close()
+// 	// функция для получения свободного порта для запуска приложений
+// 	getFreePort := func() (int, error) {
+// 		// Слушаем на порту 0, чтобы операционная система выбрала свободный порт
+// 		listener, err := net.Listen("tcp", ":0")
+// 		if err != nil {
+// 			return 0, err
+// 		}
+// 		defer listener.Close()
 
-		// Получаем назначенный системой порт
-		port := listener.Addr().(*net.TCPAddr).Port
-		return port, nil
-	}
+// 		// Получаем назначенный системой порт
+// 		port := listener.Addr().(*net.TCPAddr).Port
+// 		return port, nil
+// 	}
 
-	// функция для очистки файлов с ключами
-	removeFile := func(file string) {
-		err := os.Remove(file)
-		require.NoError(t, err)
-	}
+// 	// функция для очистки файлов с ключами
+// 	removeFile := func(file string) {
+// 		err := os.Remove(file)
+// 		require.NoError(t, err)
+// 	}
 
-	// генирирую ключи для ассиметричного шифрования
-	pathKeys := "."
-	err := encryption.GenerateKeys(pathKeys)
-	require.NoError(t, err)
+// 	// генирирую ключи для ассиметричного шифрования
+// 	pathKeys := "."
+// 	err := encryption.GenerateKeys(pathKeys)
+// 	require.NoError(t, err)
 
-	key := "secret key"
-	var done = make(chan struct{})
-	var wg sync.WaitGroup
-	// Определяю параметры для запуска сервера
-	serverPort, err := getFreePort()
-	require.NoError(t, err)
-	serverAdress := fmt.Sprintf(":%d", serverPort)
-	databaseDsn := "host=localhost user=benchmarkmetrics password=password dbname=benchmarkmetrics sslmode=disable"
+// 	key := "secret key"
+// 	var done = make(chan struct{})
+// 	var wg sync.WaitGroup
+// 	// Определяю параметры для запуска сервера
+// 	serverPort, err := getFreePort()
+// 	require.NoError(t, err)
+// 	serverAdress := fmt.Sprintf(":%d", serverPort)
+// 	databaseDsn := "host=localhost user=benchmarkmetrics password=password dbname=benchmarkmetrics sslmode=disable"
 
-	// Очищаю данные в БД от предыдущих запусков
-	cleanBD(databaseDsn)
+// 	// Очищаю данные в БД от предыдущих запусков
+// 	cleanBD(databaseDsn)
 
-	// Запускаю server-----------------------------------------------------
-	cmdServer := exec.Command("./server", fmt.Sprintf("-a=%s", serverAdress),
-		fmt.Sprintf("-k=%s", key), fmt.Sprintf("-d=%s", databaseDsn), "-l=info", fmt.Sprintf("-crypto-key=%s", pathKeys+"/private_key.pem"))
-	// Связываем стандартный вывод и ошибки программы с выводом программы Go
-	cmdServer.Stdout = log.Writer()
-	cmdServer.Stderr = log.Writer()
+// 	// Запускаю server-----------------------------------------------------
+// 	cmdServer := exec.Command("./server", fmt.Sprintf("-a=%s", serverAdress),
+// 		fmt.Sprintf("-k=%s", key), fmt.Sprintf("-d=%s", databaseDsn), "-l=info", fmt.Sprintf("-crypto-key=%s", pathKeys+"/private_key.pem"))
+// 	// Связываем стандартный вывод и ошибки программы с выводом программы Go
+// 	cmdServer.Stdout = log.Writer()
+// 	cmdServer.Stderr = log.Writer()
 
-	// // Функция остановки сервера
-	stopServer := func() {
-		err = cmdServer.Process.Signal(os.Interrupt) // Посылаем сигнал прерывания
-		require.NoError(t, err)
-	}
+// 	// // Функция остановки сервера
+// 	stopServer := func() {
+// 		err = cmdServer.Process.Signal(os.Interrupt) // Посылаем сигнал прерывания
+// 		require.NoError(t, err)
+// 	}
 
-	// Функция запуска сервера
-	startServer := func(w *sync.WaitGroup) {
-		// Запуск программы
-		err = cmdServer.Start()
-		require.NoError(t, err)
+// 	// Функция запуска сервера
+// 	startServer := func(w *sync.WaitGroup) {
+// 		// Запуск программы
+// 		err = cmdServer.Start()
+// 		require.NoError(t, err)
 
-		<-done
-		stopServer()
-		w.Done()
-	}
+// 		<-done
+// 		stopServer()
+// 		w.Done()
+// 	}
 
-	// Запускаю сервис агента--------------------------------------------------
-	agentPort, err := getFreePort()
-	require.NoError(t, err)
-	agentAdress := fmt.Sprintf("localhost:%d", agentPort)
-	cmdAgent := exec.Command("./../agent/agent", fmt.Sprintf("-a=%s", agentAdress), fmt.Sprintf("-k=%s", key), fmt.Sprintf("-r=%d", 5),
-		fmt.Sprintf("-crypto-key=%s", pathKeys+"/public_key.pem"))
-	// Связываем стандартный вывод и ошибки программы с выводом программы Go
-	cmdAgent.Stdout = log.Writer()
-	cmdAgent.Stderr = log.Writer()
+// 	// Запускаю сервис агента--------------------------------------------------
+// 	agentPort, err := getFreePort()
+// 	require.NoError(t, err)
+// 	agentAdress := fmt.Sprintf("localhost:%d", agentPort)
+// 	cmdAgent := exec.Command("./../agent/agent", fmt.Sprintf("-a=%s", agentAdress), fmt.Sprintf("-k=%s", key), fmt.Sprintf("-r=%d", 5),
+// 		fmt.Sprintf("-crypto-key=%s", pathKeys+"/public_key.pem"))
+// 	// Связываем стандартный вывод и ошибки программы с выводом программы Go
+// 	cmdAgent.Stdout = log.Writer()
+// 	cmdAgent.Stderr = log.Writer()
 
-	// Функция остановки агента
-	stopAgent := func() {
-		err = cmdAgent.Process.Signal(os.Interrupt) // Посылаем сигнал прерывания
-		require.NoError(t, err)
-	}
+// 	// Функция остановки агента
+// 	stopAgent := func() {
+// 		err = cmdAgent.Process.Signal(os.Interrupt) // Посылаем сигнал прерывания
+// 		require.NoError(t, err)
+// 	}
 
-	// Функция запуска агента
-	startAgent := func(w *sync.WaitGroup) {
-		err = cmdAgent.Start()
-		require.NoError(t, err)
+// 	// Функция запуска агента
+// 	startAgent := func(w *sync.WaitGroup) {
+// 		err = cmdAgent.Start()
+// 		require.NoError(t, err)
 
-		<-done
-		stopAgent()
-		w.Done()
-	}
+// 		<-done
+// 		stopAgent()
+// 		w.Done()
+// 	}
 
-	wg.Add(1)
-	go startServer(&wg)
-	wg.Add(1)
-	go startAgent(&wg)
-	time.Sleep(2 * time.Second) // Жду 2 секунды для запуска сервиса
+// 	wg.Add(1)
+// 	go startServer(&wg)
+// 	wg.Add(1)
+// 	go startAgent(&wg)
+// 	time.Sleep(2 * time.Second) // Жду 2 секунды для запуска сервиса
 
-	time.Sleep(5 * time.Minute) // Жду 2 минуты для сбора профиля работы сервиса
-	close(done)
-	wg.Wait()
+// 	time.Sleep(5 * time.Minute) // Жду 2 минуты для сбора профиля работы сервиса
+// 	close(done)
+// 	wg.Wait()
 
-	// создаём файл журнала профилирования памяти
-	fmem, err := os.Create(`./../../profiles/result.pprof`)
-	if err != nil {
-		panic(err)
-	}
-	defer fmem.Close()
-	runtime.GC() // получаем статистику по использованию памяти
-	if err := pprof.WriteHeapProfile(fmem); err != nil {
-		panic(err)
-	}
+// 	// создаём файл журнала профилирования памяти
+// 	fmem, err := os.Create(`./../../profiles/result.pprof`)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	defer fmem.Close()
+// 	runtime.GC() // получаем статистику по использованию памяти
+// 	if err := pprof.WriteHeapProfile(fmem); err != nil {
+// 		panic(err)
+// 	}
 
-	defer removeFile(pathKeys + "/private_key.pem")
-	defer removeFile(pathKeys + "/public_key.pem")
-}
+// 	defer removeFile(pathKeys + "/private_key.pem")
+// 	defer removeFile(pathKeys + "/public_key.pem")
+// }

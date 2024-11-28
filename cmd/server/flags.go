@@ -10,6 +10,7 @@ import (
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/config"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/encrypt"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/hasher"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/ipfilter"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/saver"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/tools/encryption"
 )
@@ -24,6 +25,7 @@ var (
 	flagKey             string
 	flagCryptoKey       string
 	flagConfigFile      string
+	flagTrustedSubnet   string
 )
 
 // Определяют способ хранения метрик.
@@ -48,6 +50,7 @@ func parseFlags() int {
 	flag.StringVar(&flagKey, "k", "", "key for hashing data")
 	flag.StringVar(&flagCryptoKey, "crypto-key", "", "private key for asymmetric encryption")
 	flag.StringVar(&flagConfigFile, "c", "", "name of configuration file")
+	flag.StringVar(&flagTrustedSubnet, "t", "", "Classless Distributed Ranging (CIDR) string representation")
 
 	flag.Parse()
 	flagStoreInterval = *flagStoreIntervalTemp
@@ -65,6 +68,7 @@ func parseFlags() int {
 	saver.SetRestore(flagRestore)
 	hasher.SetKey(flagKey)
 	encrypt.SetCryptoGrapher(encryption.Initialize("", flagCryptoKey))
+	ipfilter.SetTrustedSubnet(flagTrustedSubnet)
 
 	if flagDatabaseDsn != "" {
 		return SAVEINDATABASE
@@ -111,6 +115,9 @@ func parseEnvironment() {
 	if envConfigFile := os.Getenv("CONFIG"); envConfigFile != "" {
 		flagConfigFile = envConfigFile
 	}
+	if envTrustedSubnet := os.Getenv("TRUSTED_SUBNET"); envTrustedSubnet != "" {
+		flagTrustedSubnet = envTrustedSubnet
+	}
 }
 
 // parseConfigFile - функция для переопределения параметров конфигурации из файла конфигурации.
@@ -131,4 +138,5 @@ func parseConfigFile() {
 	flagFileStoragePath = configs.StoreFile
 	flagDatabaseDsn = configs.DatabaseDSN
 	flagCryptoKey = configs.CryptoKey
+	flagTrustedSubnet = configs.TrustedSubnet
 }

@@ -17,6 +17,7 @@ type Configs struct {
 	StoreFile     string                `json:"store_file"`     // аналог переменной окружения FILE_STORAGE_PATH или -f
 	DatabaseDSN   string                `json:"database_dsn"`   // аналог переменной окружения DATABASE_DSN или флага -d
 	CryptoKey     string                `json:"crypto_key"`     // аналог переменной окружения CRYPTO_KEY или флага -crypto-key
+	TrustedSubnet string                `json:"trusted_subnet"` // аналог переменной окружения TRUSTED_SUBNET или флага -t
 }
 
 // ParseConfigFile - функция для переопределения параметров конфигурации из файла конфигурации.

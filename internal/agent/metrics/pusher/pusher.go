@@ -19,6 +19,7 @@ import (
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/metrics/config"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/storage"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/tools/ipgetter"
 )
 
 // Push - отправляет метрику на сервер в JSON формате и возвращает ошибку при неудаче.
@@ -64,12 +65,20 @@ func PushJSON(address, action, typeMetric, nameMetric, valueMetric string, clien
 	logger.AgentLog.Debug("body and hash for forwarding to server ", zap.String("body", fmt.Sprintf("%x", bufEncode.Bytes())),
 		zap.String("hash", hash), zap.String("key", hasher.GetKey()))
 
+	// получаю ip адрес хоста для передачи на сервер в заголовке X-Real-IP
+	hostAddress, err := ipgetter.Get()
+	if err != nil {
+		logger.AgentLog.Error("Fail to get host ip address ", zap.String("error", error.Error(err)))
+		return err
+	}
+
 	url := fmt.Sprintf("%s/%s", address, action)
 	resp, err := client.R().
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Content-Encoding", "gzip").
 		SetHeader("Accept-Encoding", "gzip").
 		SetHeader("HashSHA256", hash).
+		SetHeader("X-Real-IP", hostAddress).
 		SetBody(compressBody).
 		Post(url)
 
@@ -118,8 +127,17 @@ func PushJSON(address, action, typeMetric, nameMetric, valueMetric string, clien
 // Push отправляет метрику на сервер и возвращает ошибку при неудаче.
 func Push(address, action, typemetric, namemetric, valuemetric string, client *resty.Client) error {
 	url := fmt.Sprintf("%s/%s/%s/%s/%s", address, action, typemetric, namemetric, valuemetric)
+
+	// получаю ip адрес хоста для передачи на сервер в заголовке X-Real-IP
+	hostAddress, err := ipgetter.Get()
+	if err != nil {
+		logger.AgentLog.Error("Fail to get host ip address ", zap.String("error", error.Error(err)))
+		return err
+	}
+
 	resp, err := client.R().
 		SetHeader("Content-Type", "text/plain").
+		SetHeader("X-Real-IP", hostAddress).
 		Post(url)
 
 	if err != nil {
@@ -192,12 +210,20 @@ func PushBatch(address, action string, metricsSlice []repositories.Metric, clien
 	logger.AgentLog.Debug("body and hash for forwarding to server ", zap.String("body", fmt.Sprintf("%x", bufEncode.Bytes())),
 		zap.String("hash", hash), zap.String("key", hasher.GetKey()))
 
+	// получаю ip адрес хоста для передачи на сервер в заголовке X-Real-IP
+	hostAddress, err := ipgetter.Get()
+	if err != nil {
+		logger.AgentLog.Error("Fail to get host ip address ", zap.String("error", error.Error(err)))
+		return err
+	}
+
 	url := fmt.Sprintf("%s/%s", address, action)
 	resp, err := client.R().
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Content-Encoding", "gzip").
 		SetHeader("Accept-Encoding", "gzip").
 		SetHeader("HashSHA256", hash).
+		SetHeader("X-Real-IP", hostAddress).
 		SetBody(compressBody).
 		SetContext(ctx).
 		Post(url)
