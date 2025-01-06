@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+option go_package = "github.com/AntonBezemskiy/go-musthave-metrics/internal/grpc/protoc/model";
+
+package go.musthave.metrics.grpc.service.model;
+
+import "model/metric.proto";
+
+message AddMetricRequest {
+    Metric metric = 1;
+}

@@ -25,6 +25,7 @@ type Configs struct {
 	ReportInterval repositories.Duration `json:"report_interval"` // аналог переменной окружения REPORT_INTERVAL или флага -r
 	PollInterval   repositories.Duration `json:"poll_interval"`   // аналог переменной окружения POLL_INTERVAL или флага -p
 	CryptoKey      string                `json:"crypto_key"`      // аналог переменной окружения CRYPTO_KEY или флага -crypto-key
+	Protocol       string                `json:"protocol"`        // аналог переменной окружения PROTOCOL или флага -protocol
 }
 
 // SetPollInterval устанавливает интервал между сбором.

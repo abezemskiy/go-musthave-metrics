@@ -52,6 +52,7 @@ func GetGlobal(res http.ResponseWriter, req *http.Request, storage repositories.
 	// а после WriteHeader заголовки уже не устанавливаются
 	res.Header().Set("Status-Code", "200")
 	metrics, err := storage.GetAllMetrics(req.Context())
+
 	if err != nil {
 		logger.ServerLog.Error("get all metrics error in GetGlobal handler", zap.String("error", error.Error(err)))
 		http.Error(res, err.Error(), http.StatusInternalServerError)

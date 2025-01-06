@@ -2,19 +2,40 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
+	"io"
+	"log"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	_ "net/http/pprof" // подключаем пакет pprof
+	"os"
+	"os/exec"
+	"regexp"
+	"runtime"
+	"runtime/pprof"
+	"strconv"
+	"strings"
+	"sync"
 	"testing"
+	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/go-test/deep"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/handlers"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/pg"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/storage"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/tools/encryption"
 )
 
 func testRequest(t *testing.T, ts *httptest.Server, method, path string) *http.Response {
+	fmt.Printf("\n\nurl is %s, method is %s\n\n", ts.URL+path, method)
+
 	req, err := http.NewRequest(method, ts.URL+path, nil)
 	require.NoError(t, err)
 
@@ -25,9 +46,25 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string) *http.R
 }
 
 func TestHandlerUpdate(t *testing.T) {
+	// Вспомогательная функция для дережирования http запросов к серверу.
+	metricRouter := func(stor repositories.IStorage) chi.Router {
+		r := chi.NewRouter()
+
+		r.Route("/", func(r chi.Router) {
+			r.Route("/update", func(r chi.Router) {
+				r.Post("/{metricType}/{metricName}/{metricValue}", handlers.UpdateMetricsHandler(stor))
+			})
+		})
+
+		// Определяем маршрут по умолчанию для некорректных запросов
+		r.NotFound(handlers.OtherRequestHandler())
+
+		return r
+	}
+
 	stor := storage.NewMemStorage(nil, map[string]int64{"testcount1": 1})
 
-	ts := httptest.NewServer(MetricRouter(stor, nil))
+	ts := httptest.NewServer(metricRouter(stor))
 
 	defer ts.Close()
 
@@ -172,136 +209,438 @@ func TestHandlerUpdate(t *testing.T) {
 	}
 }
 
-// func TestMusthaveMetrics(t *testing.T) {
-// 	// Функция для очистки данных в базе
-// 	cleanBD := func(dsn string) {
-// 		// очищаю данные в тестовой бд------------------------------------------------------
-// 		// создаём соединение с СУБД PostgreSQL
-// 		conn, err := sql.Open("pgx", dsn)
-// 		require.NoError(t, err)
-// 		defer conn.Close()
+func TestMusthaveMetrics(t *testing.T) {
+	// Вспомогательная функция для получения значения метрики ответа сервера типа html
+	getPollCount := func(netAddr string) (int64, error) {
+		// Отправляю HTTP-запрос к серверу для получения списка метрик и их значений
+		resp, err := http.Get("http://" + netAddr + "/")
+		if err != nil {
+			return 0, err
+		}
+		defer resp.Body.Close()
 
-// 		// Проверка соединения с БД
-// 		ctx := context.Background()
-// 		err = conn.PingContext(ctx)
-// 		require.NoError(t, err)
+		if resp.StatusCode != http.StatusOK {
+			return 0, fmt.Errorf("status is not 200")
+		}
 
-// 		// создаем экземпляр хранилища pg
-// 		stor := pg.NewStore(conn)
-// 		err = stor.Bootstrap(ctx)
-// 		require.NoError(t, err)
-// 		err = stor.Disable(ctx)
-// 		require.NoError(t, err)
-// 	}
+		// Читаю содержимое ответа
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return 0, err
+		}
 
-// 	// функция для получения свободного порта для запуска приложений
-// 	getFreePort := func() (int, error) {
-// 		// Слушаем на порту 0, чтобы операционная система выбрала свободный порт
-// 		listener, err := net.Listen("tcp", ":0")
-// 		if err != nil {
-// 			return 0, err
-// 		}
-// 		defer listener.Close()
+		response := string(body)
 
-// 		// Получаем назначенный системой порт
-// 		port := listener.Addr().(*net.TCPAddr).Port
-// 		return port, nil
-// 	}
+		// Извлекаю содержимое <pre>...</pre>
+		start := strings.Index(response, "<pre>")
+		end := strings.Index(response, "</pre>")
+		if start == -1 || end == -1 {
+			return 0, fmt.Errorf("Tag <pre> not found")
+		}
+		preContent := response[start+len("<pre>") : end]
 
-// 	// функция для очистки файлов с ключами
-// 	removeFile := func(file string) {
-// 		err := os.Remove(file)
-// 		require.NoError(t, err)
-// 	}
+		// Регулярное выражение для метрики PollCount
+		re := regexp.MustCompile(`type:\s*counter,\s*name:\s*PollCount,\s*value:\s*([-+]?[0-9]*\.?[0-9]+)`)
+		match := re.FindStringSubmatch(preContent)
 
-// 	// генирирую ключи для ассиметричного шифрования
-// 	pathKeys := "."
-// 	err := encryption.GenerateKeys(pathKeys)
-// 	require.NoError(t, err)
+		if len(match) < 2 {
+			return 0, fmt.Errorf("PollCount metric not found")
+		}
 
-// 	key := "secret key"
-// 	var done = make(chan struct{})
-// 	var wg sync.WaitGroup
-// 	// Определяю параметры для запуска сервера
-// 	serverPort, err := getFreePort()
-// 	require.NoError(t, err)
-// 	serverAdress := fmt.Sprintf(":%d", serverPort)
-// 	databaseDsn := "host=localhost user=benchmarkmetrics password=password dbname=benchmarkmetrics sslmode=disable"
+		// Преобразую значение метрики PollCount в int64
+		pollCount, err := strconv.ParseInt(match[1], 10, 64)
+		if err != nil {
+			return 0, err
+		}
 
-// 	// Очищаю данные в БД от предыдущих запусков
-// 	cleanBD(databaseDsn)
+		return pollCount, nil
+	}
 
-// 	// Запускаю server-----------------------------------------------------
-// 	cmdServer := exec.Command("./server", fmt.Sprintf("-a=%s", serverAdress),
-// 		fmt.Sprintf("-k=%s", key), fmt.Sprintf("-d=%s", databaseDsn), "-l=info", fmt.Sprintf("-crypto-key=%s", pathKeys+"/private_key.pem"))
-// 	// Связываем стандартный вывод и ошибки программы с выводом программы Go
-// 	cmdServer.Stdout = log.Writer()
-// 	cmdServer.Stderr = log.Writer()
+	// Функция для очистки данных в базе
+	cleanBD := func(dsn string) {
+		// очищаю данные в тестовой бд------------------------------------------------------
+		// создаём соединение с СУБД PostgreSQL
+		conn, err := sql.Open("pgx", dsn)
+		require.NoError(t, err)
+		defer conn.Close()
 
-// 	// // Функция остановки сервера
-// 	stopServer := func() {
-// 		err = cmdServer.Process.Signal(os.Interrupt) // Посылаем сигнал прерывания
-// 		require.NoError(t, err)
-// 	}
+		// Проверка соединения с БД
+		ctx := context.Background()
+		err = conn.PingContext(ctx)
+		require.NoError(t, err)
 
-// 	// Функция запуска сервера
-// 	startServer := func(w *sync.WaitGroup) {
-// 		// Запуск программы
-// 		err = cmdServer.Start()
-// 		require.NoError(t, err)
+		// создаем экземпляр хранилища pg
+		stor := pg.NewStore(conn)
+		err = stor.Bootstrap(ctx)
+		require.NoError(t, err)
+		err = stor.Disable(ctx)
+		require.NoError(t, err)
+	}
 
-// 		<-done
-// 		stopServer()
-// 		w.Done()
-// 	}
+	// функция для получения свободного порта для запуска приложений
+	getFreePort := func() (int, error) {
+		// Слушаем на порту 0, чтобы операционная система выбрала свободный порт
+		listener, err := net.Listen("tcp", ":0")
+		if err != nil {
+			return 0, err
+		}
+		defer listener.Close()
 
-// 	// Запускаю сервис агента--------------------------------------------------
-// 	agentPort, err := getFreePort()
-// 	require.NoError(t, err)
-// 	agentAdress := fmt.Sprintf("localhost:%d", agentPort)
-// 	cmdAgent := exec.Command("./../agent/agent", fmt.Sprintf("-a=%s", agentAdress), fmt.Sprintf("-k=%s", key), fmt.Sprintf("-r=%d", 5),
-// 		fmt.Sprintf("-crypto-key=%s", pathKeys+"/public_key.pem"))
-// 	// Связываем стандартный вывод и ошибки программы с выводом программы Go
-// 	cmdAgent.Stdout = log.Writer()
-// 	cmdAgent.Stderr = log.Writer()
+		// Получаем назначенный системой порт
+		port := listener.Addr().(*net.TCPAddr).Port
+		return port, nil
+	}
 
-// 	// Функция остановки агента
-// 	stopAgent := func() {
-// 		err = cmdAgent.Process.Signal(os.Interrupt) // Посылаем сигнал прерывания
-// 		require.NoError(t, err)
-// 	}
+	// функция для очистки файлов с ключами
+	removeDir := func(dir string) {
+		err := os.RemoveAll(dir)
+		require.NoError(t, err)
+	}
 
-// 	// Функция запуска агента
-// 	startAgent := func(w *sync.WaitGroup) {
-// 		err = cmdAgent.Start()
-// 		require.NoError(t, err)
+	// генирирую ключи для ассиметричного шифрования
+	pathKeys := "./http-keys"
+	err := os.Mkdir(pathKeys, 0755) // 0755 - права доступа
+	require.NoError(t, err)
 
-// 		<-done
-// 		stopAgent()
-// 		w.Done()
-// 	}
+	err = encryption.GenerateKeys(pathKeys)
+	require.NoError(t, err)
+	defer removeDir(pathKeys)
 
-// 	wg.Add(1)
-// 	go startServer(&wg)
-// 	wg.Add(1)
-// 	go startAgent(&wg)
-// 	time.Sleep(2 * time.Second) // Жду 2 секунды для запуска сервиса
+	key := "secret key"
+	var done = make(chan struct{})
+	var wg sync.WaitGroup
+	// Определяю параметры для запуска сервера
+	serverPort, err := getFreePort()
+	require.NoError(t, err)
+	serverAdress := fmt.Sprintf(":%d", serverPort)
+	databaseDsn := "host=localhost user=benchmarkmetrics password=password dbname=benchmarkmetrics sslmode=disable"
 
-// 	time.Sleep(5 * time.Minute) // Жду 2 минуты для сбора профиля работы сервиса
-// 	close(done)
-// 	wg.Wait()
+	// Очищаю данные в БД от предыдущих запусков
+	cleanBD(databaseDsn)
+	// Очищаю данные в БД после завершения теста
+	defer cleanBD(databaseDsn)
 
-// 	// создаём файл журнала профилирования памяти
-// 	fmem, err := os.Create(`./../../profiles/result.pprof`)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	defer fmem.Close()
-// 	runtime.GC() // получаем статистику по использованию памяти
-// 	if err := pprof.WriteHeapProfile(fmem); err != nil {
-// 		panic(err)
-// 	}
+	// Запускаю server-----------------------------------------------------
+	cmdServer := exec.Command("./server", fmt.Sprintf("-a=%s", serverAdress),
+		fmt.Sprintf("-k=%s", key), fmt.Sprintf("-d=%s", databaseDsn), "-l=info", fmt.Sprintf("-crypto-key=%s", pathKeys+"/private_key.pem"))
+	// Связываем стандартный вывод и ошибки программы с выводом программы Go
+	cmdServer.Stdout = log.Writer()
+	cmdServer.Stderr = log.Writer()
 
-// 	defer removeFile(pathKeys + "/private_key.pem")
-// 	defer removeFile(pathKeys + "/public_key.pem")
-// }
+	// // Функция остановки сервера
+	stopServer := func() {
+		err = cmdServer.Process.Signal(os.Interrupt) // Посылаем сигнал прерывания
+		require.NoError(t, err)
+	}
+
+	// Функция запуска сервера
+	startServer := func(w *sync.WaitGroup) {
+		// Запуск программы
+		err = cmdServer.Start()
+		require.NoError(t, err)
+
+		<-done
+		stopServer()
+		w.Done()
+	}
+
+	// Запускаю сервис агента--------------------------------------------------
+	agentAdress := serverAdress
+	reportInterval := 10
+	cmdAgent := exec.Command("./../agent/agent", fmt.Sprintf("-a=%s", agentAdress), fmt.Sprintf("-k=%s", key), fmt.Sprintf("-r=%d", reportInterval),
+		fmt.Sprintf("-crypto-key=%s", pathKeys+"/public_key.pem"))
+	// Связываем стандартный вывод и ошибки программы с выводом программы Go
+	cmdAgent.Stdout = log.Writer()
+	cmdAgent.Stderr = log.Writer()
+
+	// Функция остановки агента
+	stopAgent := func() {
+		err = cmdAgent.Process.Signal(os.Interrupt) // Посылаем сигнал прерывания
+		require.NoError(t, err)
+	}
+
+	// Функция запуска агента
+	startAgent := func(w *sync.WaitGroup) {
+		err = cmdAgent.Start()
+		require.NoError(t, err)
+
+		<-done
+		stopAgent()
+		w.Done()
+	}
+
+	wg.Add(1)
+	go startServer(&wg)
+	wg.Add(1)
+	go startAgent(&wg)
+	time.Sleep(2 * time.Second) // Жду 2 секунды для запуска сервиса
+
+	// проверяю, что с каждой новой отправкой метрик на сервер счетчик PollCount увеличивается----------------------------------------
+	// создаю для этой проверки собственный канал, чтобы завершить отправку запросов к серверу перед остановкой самого сервера.
+	var checkerDone = make(chan struct{})
+	wg.Add(1)
+	oldPollCount := int64(0)
+	go func(done chan struct{}, reportInterval int, wg *sync.WaitGroup) {
+		defer wg.Done()
+		time.Sleep(time.Second * time.Duration(reportInterval+5))
+
+		for {
+			select {
+			case <-done:
+				return
+			default:
+				// Устанавливаю ожидание, чтобы агент успел отправить новые метрики
+				time.Sleep(time.Second * time.Duration(reportInterval+5))
+				newPollCount, err := getPollCount(serverAdress)
+				require.NoError(t, err)
+				assert.Equal(t, true, newPollCount > oldPollCount)
+
+				oldPollCount = newPollCount
+			}
+		}
+	}(checkerDone, reportInterval, &wg)
+
+	// Ожидаю, пока тест отработает----------------------------------------------------
+	time.Sleep(1 * time.Minute) // Жду 5 минут для сбора профиля работы сервиса
+
+	// Останавливаю тест----------------------------------------------------------------
+	// Останавливаю функцию проверки метрики PollCount
+	close(checkerDone)
+	time.Sleep(2 * time.Second)
+	// Останавливаю сам сервис
+	close(done)
+	wg.Wait()
+
+	// создаём файл журнала профилирования памяти
+	fmem, err := os.Create(`./../../profiles/result.pprof`)
+	if err != nil {
+		panic(err)
+	}
+	defer fmem.Close()
+	runtime.GC() // получаем статистику по использованию памяти
+	if err := pprof.WriteHeapProfile(fmem); err != nil {
+		panic(err)
+	}
+}
+
+func TestGRPCMusthaveMetrics(t *testing.T) {
+	// Вспомогательная функция для получения значения метрики ответа сервера типа html
+	getPollCount := func(netAddr string) (int64, error) {
+		// Отправляю HTTP-запрос к серверу для получения списка метрик и их значений
+		resp, err := http.Get("http://" + netAddr + "/")
+		if err != nil {
+			return 0, err
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return 0, fmt.Errorf("status is not 200")
+		}
+
+		// Читаю содержимое ответа
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return 0, err
+		}
+
+		response := string(body)
+
+		// Извлекаю содержимое <pre>...</pre>
+		start := strings.Index(response, "<pre>")
+		end := strings.Index(response, "</pre>")
+		if start == -1 || end == -1 {
+			return 0, fmt.Errorf("Tag <pre> not found")
+		}
+		preContent := response[start+len("<pre>") : end]
+
+		// Регулярное выражение для метрики PollCount
+		re := regexp.MustCompile(`type:\s*counter,\s*name:\s*PollCount,\s*value:\s*([-+]?[0-9]*\.?[0-9]+)`)
+		match := re.FindStringSubmatch(preContent)
+
+		if len(match) < 2 {
+			return 0, fmt.Errorf("PollCount metric not found")
+		}
+
+		// Преобразую значение метрики PollCount в int64
+		pollCount, err := strconv.ParseInt(match[1], 10, 64)
+		if err != nil {
+			return 0, err
+		}
+
+		return pollCount, nil
+	}
+
+	// Функция для очистки данных в базе
+	cleanBD := func(dsn string) {
+		// очищаю данные в тестовой бд------------------------------------------------------
+		// создаём соединение с СУБД PostgreSQL
+		conn, err := sql.Open("pgx", dsn)
+		require.NoError(t, err)
+		defer conn.Close()
+
+		// Проверка соединения с БД
+		ctx := context.Background()
+		err = conn.PingContext(ctx)
+		require.NoError(t, err)
+
+		// создаем экземпляр хранилища pg
+		stor := pg.NewStore(conn)
+		err = stor.Bootstrap(ctx)
+		require.NoError(t, err)
+		err = stor.Disable(ctx)
+		require.NoError(t, err)
+	}
+
+	// функция для получения свободного порта для запуска приложений
+	getFreePort := func() (int, error) {
+		// Слушаем на порту 0, чтобы операционная система выбрала свободный порт
+		listener, err := net.Listen("tcp", ":0")
+		if err != nil {
+			return 0, err
+		}
+		defer listener.Close()
+
+		// Получаем назначенный системой порт
+		port := listener.Addr().(*net.TCPAddr).Port
+		return port, nil
+	}
+
+	// функция для очистки файлов с ключами
+	removeDir := func(dir string) {
+		err := os.RemoveAll(dir)
+		require.NoError(t, err)
+	}
+
+	// генирирую ключи для ассиметричного шифрования
+	pathKeys := "./grpc-and-http-keys"
+	err := os.Mkdir(pathKeys, 0755) // 0755 - права доступа
+	require.NoError(t, err)
+
+	err = encryption.GenerateKeys(pathKeys)
+	require.NoError(t, err)
+	defer removeDir(pathKeys)
+
+	key := "secret key"
+
+	var done = make(chan struct{})
+	var wg sync.WaitGroup
+
+	// Определяю параметры для запуска http сервера
+	httpServerPort, err := getFreePort()
+	require.NoError(t, err)
+	httpServerAdress := fmt.Sprintf(":%d", httpServerPort)
+
+	// Определяю параметры для запуска grpc сервера
+	grpcServerPort, err := getFreePort()
+	require.NoError(t, err)
+	grpcServerAdress := fmt.Sprintf(":%d", grpcServerPort)
+
+	databaseDsn := "host=localhost user=benchmarkmetrics password=password dbname=benchmarkmetrics sslmode=disable"
+
+	// Очищаю данные в БД от предыдущих запусков
+	cleanBD(databaseDsn)
+	// Очищаю данные в БД после завершения теста
+	defer cleanBD(databaseDsn)
+
+	// Запускаю server-----------------------------------------------------
+	cmdServer := exec.Command("./server", fmt.Sprintf("-a=%s", httpServerAdress), fmt.Sprintf("-grpc-address=%s", grpcServerAdress),
+		fmt.Sprintf("-k=%s", key), fmt.Sprintf("-d=%s", databaseDsn), "-l=info", fmt.Sprintf("-crypto-key=%s", pathKeys+"/private_key.pem"))
+	// Связываем стандартный вывод и ошибки программы с выводом программы Go
+	cmdServer.Stdout = log.Writer()
+	cmdServer.Stderr = log.Writer()
+
+	// // Функция остановки сервера
+	stopServer := func() {
+		err = cmdServer.Process.Signal(os.Interrupt) // Посылаем сигнал прерывания
+		require.NoError(t, err)
+	}
+
+	// Функция запуска сервера
+	startServer := func(w *sync.WaitGroup) {
+		// Запуск программы
+		err = cmdServer.Start()
+		require.NoError(t, err)
+
+		<-done
+		stopServer()
+		w.Done()
+	}
+
+	// Запускаю сервис агента--------------------------------------------------
+	agentAdress := grpcServerAdress
+	reportInterval := 10
+	cmdAgent := exec.Command("./../agent/agent", fmt.Sprintf("-a=%s", agentAdress), fmt.Sprintf("-k=%s", key), fmt.Sprintf("-r=%d", reportInterval),
+		fmt.Sprintf("-crypto-key=%s", pathKeys+"/public_key.pem"), fmt.Sprintf("-protocol=%s", "grpc"))
+	// Связываем стандартный вывод и ошибки программы с выводом программы Go
+	cmdAgent.Stdout = log.Writer()
+	cmdAgent.Stderr = log.Writer()
+
+	// Функция остановки агента
+	stopAgent := func() {
+		err = cmdAgent.Process.Signal(os.Interrupt) // Посылаем сигнал прерывания
+		require.NoError(t, err)
+	}
+
+	// Функция запуска агента
+	startAgent := func(w *sync.WaitGroup) {
+		err = cmdAgent.Start()
+		require.NoError(t, err)
+
+		<-done
+		stopAgent()
+		w.Done()
+	}
+
+	wg.Add(1)
+	go startServer(&wg)
+	wg.Add(1)
+	go startAgent(&wg)
+	time.Sleep(2 * time.Second) // Жду 2 секунды для запуска сервиса
+
+	// проверяю, что с каждой новой отправкой метрик на сервер счетчик PollCount увеличивается----------------------------------------
+	// создаю для этой проверки собственный канал, чтобы завершить отправку запросов к серверу перед остановкой самого сервера.
+	var checkerDone = make(chan struct{})
+	wg.Add(1)
+	oldPollCount := int64(0)
+	go func(done chan struct{}, reportInterval int, wg *sync.WaitGroup) {
+		defer wg.Done()
+		time.Sleep(time.Second * time.Duration(reportInterval+5))
+
+		for {
+			select {
+			case <-done:
+				return
+			default:
+				// Устанавливаю ожидание, чтобы агент успел отправить новые метрики
+				time.Sleep(time.Second * time.Duration(reportInterval+5))
+				newPollCount, err := getPollCount(httpServerAdress)
+				require.NoError(t, err)
+				assert.Equal(t, true, newPollCount > oldPollCount)
+
+				oldPollCount = newPollCount
+			}
+		}
+	}(checkerDone, reportInterval, &wg)
+
+	// Ожидаю, пока тест отработает----------------------------------------------------
+	time.Sleep(1 * time.Minute) // Жду 5 минут для сбора профиля работы сервиса
+
+	// Останавливаю тест----------------------------------------------------------------
+	// Останавливаю функцию проверки метрики PollCount
+	close(checkerDone)
+	time.Sleep(2 * time.Second)
+	// Останавливаю сам сервис
+	close(done)
+	wg.Wait()
+
+	// создаём файл журнала профилирования памяти
+	fmem, err := os.Create(`./../../profiles/grpc_result.pprof`)
+	if err != nil {
+		panic(err)
+	}
+	defer fmem.Close()
+	runtime.GC() // получаем статистику по использованию памяти
+	if err := pprof.WriteHeapProfile(fmem); err != nil {
+		panic(err)
+	}
+}

@@ -12,6 +12,7 @@ import (
 // Configs представляет структуру конфигурации.
 type Configs struct {
 	Address       string                `json:"address"`        // аналог переменной окружения ADDRESS или флага -a
+	GRPCAddress   string                `json:"grpc_address"`   // аналог переменной окружения GRPC_ADDRESS или флага -grpc-address
 	Restore       bool                  `json:"restore"`        // аналог переменной окружения RESTORE или флага -r
 	StoreInterval repositories.Duration `json:"store_interval"` // аналог переменной окружения STORE_INTERVAL или флага -i
 	StoreFile     string                `json:"store_file"`     // аналог переменной окружения FILE_STORAGE_PATH или -f

@@ -4,13 +4,20 @@ import (
 	"context"
 	"database/sql"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
+
+	server "github.com/AntonBezemskiy/go-musthave-metrics/internal/grpc/api/server/impl"
+	pb "github.com/AntonBezemskiy/go-musthave-metrics/internal/grpc/protoc"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
@@ -126,11 +133,28 @@ func run(stor repositories.IStorage, saverVar saver.FileWriter, db *sql.DB, save
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
-	// Горутина для запуска сервера
+	// Горутина для запуска http сервера-----------------------------------------------
 	go func() {
-		logger.ServerLog.Info("Running server", zap.String("address", flagNetAddr))
+		logger.ServerLog.Info("Running http server", zap.String("address", flagNetAddr))
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Error starting server: %v", err)
+			log.Fatalf("Error starting http server: %v", err)
+		}
+	}()
+
+	// Подготовка grpc сервера----------------------------------------------------------
+	lis, err := net.Listen("tcp", flagGRPCNetAddr)
+	if err != nil {
+		log.Fatalf("Error starting gRPC server: %v", err)
+	}
+	grpcServer := grpc.NewServer()
+	pb.RegisterServiceServer(grpcServer, server.NewServer(stor))
+	reflection.Register(grpcServer)
+
+	// Горутина для запуска grpc сервера-----------------------------------------------
+	go func() {
+		logger.ServerLog.Info("Running grpc server", zap.String("address", flagGRPCNetAddr))
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Fatalf("Error starting grpc server: %v", err)
 		}
 	}()
 
@@ -142,17 +166,48 @@ func run(stor repositories.IStorage, saverVar saver.FileWriter, db *sql.DB, save
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownWaitPeriod)
 	defer cancel()
 
-	// останавливаю сервер, чтобы он перестал принимать новые запросы
-	if err := srv.Shutdown(ctx); err != nil {
-		logger.ServerLog.Error("Stopping server error: %v", zap.String("error", error.Error(err)))
-		return err
-	}
+	// группа синхронизации для ожидания мягкого завершения серверов
+	var wg sync.WaitGroup
+
+	// горутина для остановки http сервера, чтобы он перестал принимать новые запросы
+	wg.Add(1)
+	go func(wg *sync.WaitGroup) {
+		if err := srv.Shutdown(ctx); err != nil {
+			logger.ServerLog.Error("Stopping server error: %v", zap.String("error", error.Error(err)))
+		}
+		defer wg.Done()
+	}(&wg)
+
+	// останавливаю grpc сервер, чтобы он перестал принимать новые запросы
+	wg.Add(1)
+	go func(ctx context.Context, wg *sync.WaitGroup) {
+		// Создаю канал для уведомления о завершении GracefulStop
+		done := make(chan struct{})
+
+		// Горутина, которая отлеживает завершение контекста и в случае его отмены принудительно уменьшает
+		// счетчик WaitGroup, что позволяет завершить работу программы, если grpcServer.GracefulStop() долго не
+		// возвращает управление.
+		go func(ctx context.Context, wg *sync.WaitGroup, done chan struct{}) {
+			select {
+			case <-done: // GracefulStop завершился
+				wg.Done()
+			case <-ctx.Done(): // GracefulStop ещё не завершился, но уже отменился контекст
+				logger.ServerLog.Error("failed to stop grpc server gracefully, context is exceeded")
+				wg.Done()
+			}
+		}(ctx, wg, done)
+
+		grpcServer.GracefulStop()
+		close(done)
+	}(ctx, &wg)
+
+	// Ожидание завершения работы серверов.
+	wg.Wait()
 	return nil
 }
 
 // MetricRouter - дирежирует обработку http запросов к серверу.
 func MetricRouter(stor repositories.IStorage, db *sql.DB) chi.Router {
-
 	r := chi.NewRouter()
 
 	r.Route("/", func(r chi.Router) {

@@ -17,6 +17,7 @@ import (
 
 var (
 	flagNetAddr         string
+	flagGRPCNetAddr     string
 	flagLogLevel        string
 	flagStoreInterval   int
 	flagFileStoragePath string
@@ -40,6 +41,7 @@ const (
 
 func parseFlags() int {
 	flag.StringVar(&flagNetAddr, "a", ":8080", "address and port to run server")
+	flag.StringVar(&flagGRPCNetAddr, "grpc-address", ":8082", "address and port to run grpc server")
 	flag.StringVar(&flagLogLevel, "l", "info", "log level")
 	// настройка флагов для хранения метрик в файле
 	flagStoreIntervalTemp := flag.Int("i", 300, "interval of saving metrics to the file")
@@ -82,6 +84,9 @@ func parseFlags() int {
 func parseEnvironment() {
 	if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
 		flagNetAddr = envRunAddr
+	}
+	if envRunGRPCAddr := os.Getenv("GRPC_ADDRESS"); envRunGRPCAddr != "" {
+		flagGRPCNetAddr = envRunGRPCAddr
 	}
 	if envLogLevel := os.Getenv("SERVER_LOG_LEVEL"); envLogLevel != "" {
 		flagLogLevel = envLogLevel
@@ -133,6 +138,7 @@ func parseConfigFile() {
 
 	// обновляю параметры запуска
 	flagNetAddr = configs.Address
+	flagGRPCNetAddr = configs.GRPCAddress
 	flagRestore = configs.Restore
 	flagStoreInterval = int(configs.StoreInterval.Duration.Seconds())
 	flagFileStoragePath = configs.StoreFile

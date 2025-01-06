@@ -9,7 +9,7 @@ import (
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
 )
 
-func TestBuildMetric(t *testing.T) {
+func TestBuild(t *testing.T) {
 	deltaPointer := func(delta int64) *int64 {
 		return &delta
 	}
@@ -98,4 +98,10 @@ func TestBuildMetric(t *testing.T) {
 			assert.Equal(t, gotMetric, tt.wantMetric)
 		})
 	}
+}
+
+func TestBuildSlice(t *testing.T) {
+	// Тест с непроинициализированной структурой
+	slice := BuildSlice(nil)
+	assert.Equal(t, []repositories.Metric{}, slice)
 }

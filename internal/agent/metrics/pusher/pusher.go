@@ -272,22 +272,10 @@ func PushBatch(address, action string, metricsSlice []repositories.Metric, clien
 func PrepareAndPushBatch(address, action string, metrics *storage.MetricsStats, client *resty.Client) error {
 	metrics.Lock()
 	defer metrics.Unlock()
-	metricsSlice := make([]repositories.Metric, 0)
 
 	// создаю слайс с метриками для отправки батчем
-	for _, metricName := range storage.AllMetrics {
-		typeMetric, value, err := metrics.GetMetricString(metricName)
-		if err != nil {
-			logger.AgentLog.Error(fmt.Sprintf("Failed to get metric %s: %v\n", typeMetric, err), zap.String("action", "push metrics"))
-			continue
-		}
-		metric, err := builder.Build(typeMetric, metricName, value)
-		if err != nil {
-			logger.AgentLog.Error(fmt.Sprintf("Failed to build metric structer %s: %v\n", typeMetric, err), zap.String("action", "push metrics"))
-			continue
-		}
-		metricsSlice = append(metricsSlice, metric)
-	}
+	metricsSlice := builder.BuildSlice(metrics)
+
 	err := PushBatch(address, action, metricsSlice, client)
 	if err != nil {
 		logger.AgentLog.Error("Failed to push batch metrics", zap.String("action", "push metrics"), zap.String("error", error.Error(err)))
