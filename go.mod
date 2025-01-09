@@ -7,6 +7,7 @@ require (
 	github.com/go-resty/resty/v2 v2.13.1
 	github.com/go-test/deep v1.1.1
 	github.com/golang/mock v1.6.0
+	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.2.0
 	github.com/jackc/pgerrcode v0.0.0-20240316143900-6e2875d9b438
 	github.com/jackc/pgx/v5 v5.6.0
 	github.com/shirou/gopsutil/v4 v4.24.7

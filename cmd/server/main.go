@@ -16,7 +16,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
+
 	server "github.com/AntonBezemskiy/go-musthave-metrics/internal/grpc/api/server/impl"
+	rpcLogger "github.com/AntonBezemskiy/go-musthave-metrics/internal/grpc/api/server/interceptors/logger"
 	pb "github.com/AntonBezemskiy/go-musthave-metrics/internal/grpc/protoc"
 
 	"github.com/go-chi/chi/v5"
@@ -146,7 +149,16 @@ func run(stor repositories.IStorage, saverVar saver.FileWriter, db *sql.DB, save
 	if err != nil {
 		log.Fatalf("Error starting gRPC server: %v", err)
 	}
-	grpcServer := grpc.NewServer()
+	opts := []logging.Option{
+		// Логирование конца вызова
+		logging.WithLogOnEvents(logging.FinishCall),
+	}
+	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			logging.UnaryServerInterceptor(rpcLogger.Logger(logger.ServerGRPCLog), opts...),
+			// Add any other interceptor.
+		),
+	)
 	pb.RegisterServiceServer(grpcServer, server.NewServer(stor))
 	reflection.Register(grpcServer)
 

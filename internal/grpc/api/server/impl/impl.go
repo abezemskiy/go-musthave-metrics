@@ -41,29 +41,29 @@ func (s *Server) AddMetric(ctx context.Context, req *pbModel.AddMetricRequest) (
 	switch metric.Mtype {
 	case "gauge":
 		if metric.Value == nil {
-			logger.ServerLog.Error("Decode message error, value in gauge metric is nil")
+			logger.ServerGRPCLog.Error("Decode message error, value in gauge metric is nil")
 			return nil, status.Error(codes.InvalidArgument, "decode message error, value in gauge metric is nil")
 		}
 		err := s.storage.AddGauge(ctx, metric.Id, *metric.Value)
 		if err != nil {
-			logger.ServerLog.Error("add gauge error", zap.String("error", error.Error(err)))
+			logger.ServerGRPCLog.Error("add gauge error", zap.String("error", error.Error(err)))
 			return nil, status.Error(codes.Internal, "add gauge error")
 		}
 	case "counter":
 		if metric.Delta == nil {
-			logger.ServerLog.Error("Decode message error, delta in counter metric is nil")
+			logger.ServerGRPCLog.Error("Decode message error, delta in counter metric is nil")
 			return nil, status.Error(codes.InvalidArgument, "decode message error, delta in counter metric is nil")
 		}
 		err := s.storage.AddCounter(ctx, metric.Id, *metric.Delta)
 		if err != nil {
-			logger.ServerLog.Error("add counter error", zap.String("error", error.Error(err)))
+			logger.ServerGRPCLog.Error("add counter error", zap.String("error", error.Error(err)))
 			return nil, status.Error(codes.Internal, "add counter error")
 		}
 	default:
-		logger.ServerLog.Error("Invalid type of metric", zap.String("type", metric.Mtype))
+		logger.ServerGRPCLog.Error("Invalid type of metric", zap.String("type", metric.Mtype))
 		return nil, status.Errorf(codes.InvalidArgument, "invalid type of metric, type %s", metric.Mtype)
 	}
-	logger.ServerLog.Debug("Successful decode metrcic from json")
+	logger.ServerGRPCLog.Debug("Successful decode metrcic from json")
 
 	// возвращаю клиенту туже метрику, которую он отправил на сервер
 	// в случае успешного добавления метрики на сервере
