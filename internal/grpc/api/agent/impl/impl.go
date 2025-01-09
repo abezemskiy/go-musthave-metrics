@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/logger"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/metrics/checker"
@@ -65,10 +66,14 @@ func AddMetric(ctx context.Context, cl *Client, metricsSlice []repositories.Metr
 		// Вызов grpc метода. В этом месте можно установить необходимые перехватчики.
 		resp, err := cl.AddMetric(ctx, &req)
 		if err != nil {
-			return fmt.Errorf("error of add metric on server: %v", err)
+			if e, ok := status.FromError(err); ok {
+				return fmt.Errorf("error of add metric to server: %v", e.Message())
+			} else {
+				return fmt.Errorf("error of add metric to server, can't parse error: %v", err)
+			}
 		}
 		if resp.Error != nil && *resp.Error != "" {
-			return fmt.Errorf("error of add metric on server: %s", *resp.Error)
+			return fmt.Errorf("error of add metric to server, error from server response: %s", *resp.Error)
 		}
 
 		// Проверяю ответ сервера. Сравниваю метрику отправленную на сервер с метрикой, которую сервер вернул.

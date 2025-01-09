@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	pb "github.com/AntonBezemskiy/go-musthave-metrics/internal/grpc/protoc"
 	pbModel "github.com/AntonBezemskiy/go-musthave-metrics/internal/grpc/protoc/model"
@@ -24,56 +26,42 @@ func NewServer(stor repositories.IStorage) *Server {
 
 // AddMetric - gRPC метод для добавления метрики на сервер.
 func (s *Server) AddMetric(ctx context.Context, req *pbModel.AddMetricRequest) (*pbModel.AddMetricResponce, error) {
-	responce := &pbModel.AddMetricResponce{
-		Error: nil,
-	}
+	responce := &pbModel.AddMetricResponce{}
 
-	// Проверка на nil для storage
-	if s.storage == nil || req.Metric == nil {
-		errStr := "storage not initialized or metric is nil"
-		responce.Error = &errStr
-		return responce, nil
+	// Проверка на nil для хранилище сервера
+	if s.storage == nil {
+		return nil, status.Error(codes.Internal, "storage not initialized")
+	}
+	if req.Metric == nil {
+		return nil, status.Error(codes.InvalidArgument, "metric in request is nil")
 	}
 	metric := req.Metric
 
+	// загрузка метрики в хранилище сервера
 	switch metric.Mtype {
 	case "gauge":
 		if metric.Value == nil {
 			logger.ServerLog.Error("Decode message error, value in gauge metric is nil")
-
-			errStr := "decode message error, value in gauge metric is nil"
-			responce.Error = &errStr
-			return responce, nil
+			return nil, status.Error(codes.InvalidArgument, "decode message error, value in gauge metric is nil")
 		}
 		err := s.storage.AddGauge(ctx, metric.Id, *metric.Value)
 		if err != nil {
 			logger.ServerLog.Error("add gauge error", zap.String("error", error.Error(err)))
-			errStr := "add gauge error"
-			responce.Error = &errStr
-			return responce, nil
+			return nil, status.Error(codes.Internal, "add gauge error")
 		}
 	case "counter":
 		if metric.Delta == nil {
 			logger.ServerLog.Error("Decode message error, delta in counter metric is nil")
-
-			errStr := "decode message error, delta in counter metric is nil"
-			responce.Error = &errStr
-			return responce, nil
+			return nil, status.Error(codes.InvalidArgument, "decode message error, delta in counter metric is nil")
 		}
 		err := s.storage.AddCounter(ctx, metric.Id, *metric.Delta)
 		if err != nil {
 			logger.ServerLog.Error("add counter error", zap.String("error", error.Error(err)))
-
-			errStr := "add counter error"
-			responce.Error = &errStr
-			return responce, nil
+			return nil, status.Error(codes.Internal, "add counter error")
 		}
 	default:
 		logger.ServerLog.Error("Invalid type of metric", zap.String("type", metric.Mtype))
-
-		errStr := "invalid type of metric: " + metric.Mtype
-		responce.Error = &errStr
-		return responce, nil
+		return nil, status.Errorf(codes.InvalidArgument, "invalid type of metric, type %s", metric.Mtype)
 	}
 	logger.ServerLog.Debug("Successful decode metrcic from json")
 
