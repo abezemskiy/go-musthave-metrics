@@ -29,3 +29,7 @@ build-server-client: gen-proto
 .PHONY: clean-gen-proto
 clean-gen-proto:
 	find internal/protos -type f ! -name "*.proto" -delete
+
+.PHONY: test-coverpkg
+test-coverpkg:
+	@go test -coverpkg=./... -coverprofile=coverage.out $$(go list ./... | grep -v -e '/mocks' -e '/proto')

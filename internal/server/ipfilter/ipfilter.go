@@ -18,7 +18,7 @@ func SetTrustedSubnet(t string) {
 }
 
 // getTrustedSubnet - функция для получения строкового представления бесклассовой адресации (CIDR).
-func getTrustedSubnet() string {
+func GetTrustedSubnet() string {
 	return trustedSubnet
 }
 
@@ -26,7 +26,7 @@ func getTrustedSubnet() string {
 // Проверка осуществляется только в случае, если установлена переменная trustedSubnet.
 func Middleware(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		subnet := getTrustedSubnet()
+		subnet := GetTrustedSubnet()
 
 		// проверяю вхождение Ip адреса в доверенную сеть только в том случае, если установлена переменная trustedSubnet
 		if subnet != "" {

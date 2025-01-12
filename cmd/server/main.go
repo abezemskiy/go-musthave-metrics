@@ -21,6 +21,7 @@ import (
 
 	server "github.com/AntonBezemskiy/go-musthave-metrics/internal/grpc/api/server/impl"
 	rpcHasher "github.com/AntonBezemskiy/go-musthave-metrics/internal/grpc/api/server/interceptors/hasher"
+	rpcIPfilter "github.com/AntonBezemskiy/go-musthave-metrics/internal/grpc/api/server/interceptors/ipfilter"
 	rpcLogger "github.com/AntonBezemskiy/go-musthave-metrics/internal/grpc/api/server/interceptors/logger"
 	pb "github.com/AntonBezemskiy/go-musthave-metrics/internal/grpc/protoc"
 
@@ -159,6 +160,7 @@ func run(stor repositories.IStorage, saverVar saver.FileWriter, db *sql.DB, save
 		grpc.ChainUnaryInterceptor(
 			logging.UnaryServerInterceptor(rpcLogger.Logger(logger.ServerGRPCLog), opts...),
 			rpcHasher.UnaryServerInterceptor,
+			rpcIPfilter.UnaryServerInterceptor,
 			// Add any other interceptor.
 		),
 	)

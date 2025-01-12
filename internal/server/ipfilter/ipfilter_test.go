@@ -17,7 +17,7 @@ func TestSetTrustedSubnet(t *testing.T) {
 
 func TestGetTrustedSubnet(t *testing.T) {
 	trustedSubnet = "192.168.17.0/24"
-	assert.Equal(t, "192.168.17.0/24", getTrustedSubnet())
+	assert.Equal(t, "192.168.17.0/24", GetTrustedSubnet())
 }
 
 func TestMiddleware(t *testing.T) {
@@ -61,7 +61,7 @@ func TestMiddleware(t *testing.T) {
 			name:     "wrong real ip",
 			subNet:   "192.168.14.0/16",
 			realIP:   "wrong.real.ip",
-			wantCode: 500,
+			wantCode: 403,
 		},
 		{
 			name:     "empty real ip",

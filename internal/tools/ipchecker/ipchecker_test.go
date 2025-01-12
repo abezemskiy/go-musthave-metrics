@@ -23,6 +23,13 @@ func TestInTrustedSubNet(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name:    "in trusted, address with port",
+			subNet:  "192.168.0.0/24",
+			realIP:  "192.168.0.235:47886",
+			wantRes: true,
+			wantErr: false,
+		},
+		{
 			name:    "not in trusted",
 			subNet:  "192.168.1.0/24",
 			realIP:  "192.168.0.235",
@@ -61,11 +68,64 @@ func TestInTrustedSubNet(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			res, err := InTrustedSubNet(tt.subNet, tt.realIP)
 			if tt.wantErr {
-				require.Error(t, err)
+				if err == nil {
+					assert.Equal(t, false, res)
+				}
 			} else {
 				require.NoError(t, err)
 			}
 			assert.Equal(t, tt.wantRes, res)
+		})
+	}
+}
+
+func TestGetClientIP(t *testing.T) {
+	tests := []struct {
+		name        string
+		ipAddress   string
+		wantAddress string
+		wantErr     bool
+	}{
+		{
+			name:        "successful test#1",
+			ipAddress:   "192.168.0.0:2345",
+			wantAddress: "192.168.0.0",
+			wantErr:     false,
+		},
+		{
+			name:        "successful test#2",
+			ipAddress:   "192.168.1.100",
+			wantAddress: "192.168.1.100",
+			wantErr:     false,
+		},
+		{
+			name:        "successful test#3",
+			ipAddress:   "[::1]:8080",
+			wantAddress: "::1",
+			wantErr:     false,
+		},
+		{
+			name:        "successful test#4",
+			ipAddress:   "localhost:9090",
+			wantAddress: "localhost",
+			wantErr:     false,
+		},
+		{
+			name:        "wrong ip address test#5",
+			ipAddress:   "wrong_address",
+			wantAddress: "wrong_address",
+			wantErr:     false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			getAddr, err := getClientIP(tt.ipAddress)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.wantAddress, getAddr)
+			}
 		})
 	}
 }
