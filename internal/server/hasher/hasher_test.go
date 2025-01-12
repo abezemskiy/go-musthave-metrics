@@ -105,17 +105,17 @@ func TestHashMiddleware(t *testing.T) {
 			header: []header{{key: "Hash", value: "exist"}, {key: "HashSHA256", value: ""}},
 		},
 		{
-			name: "failure hashing",
+			name: "failure hashing#1",
 			data: testBody1,
 			key:  key1,
 			want: want{
 				hash:       hash1,
-				statusCode: 400,
+				statusCode: 500,
 			},
 			header: []header{{key: "Hash", value: "exist"}, {key: "HashSHA256", value: "wrong hash"}},
 		},
 		{
-			name: "failure hashing",
+			name: "failure hashing#2",
 			data: testBody1,
 			key:  "wrong key",
 			want: want{

@@ -27,27 +27,28 @@ func CalkHash(body []byte, key string) (string, error) {
 }
 
 // CheckHash - проверяет корректность подписи.
-func CheckHash(body []byte, wantHash, key string) error {
+func CheckHash(body []byte, wantHash, key string) (bool, error) {
 	logger.ServerLog.Debug("getting body and hash to check in CheckHash", zap.String("body", fmt.Sprintf("%x", body)), zap.String("hash", wantHash),
 		zap.String("key", key))
 
 	reqHashBytes, err := hex.DecodeString(wantHash)
 	if err != nil {
-		return err
+		return false, fmt.Errorf("decode wantHash from string to []byte error: %v", err)
 	}
 
 	// подписываем алгоритмом HMAC, используя SHA-256
 	h := hmac.New(sha256.New, []byte(key))
 	_, err = h.Write(body)
 	if err != nil {
-		return err
+		return false, fmt.Errorf("error of hashing body %x with key %s by SHA-256: %v", body, key, err)
 	}
 	hash := h.Sum(nil)
 
 	if !hmac.Equal(hash, reqHashBytes) {
-		return fmt.Errorf("hashs is not equal, want %x, get %x", reqHashBytes, hash)
+		logger.ServerLog.Debug("hashs is not equal", zap.String("want", fmt.Sprintf("%x", reqHashBytes)), zap.String("get", fmt.Sprintf("%x", hash)))
+		return false, nil
 	}
-	return nil
+	return true, nil
 }
 
 // HashWriter реализует интерфейс http.ResponseWriter и позволяет прозрачно для сервера

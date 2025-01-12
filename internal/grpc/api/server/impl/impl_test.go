@@ -40,7 +40,8 @@ func TestServer_AddMetric(t *testing.T) {
 		return port, nil
 	}
 
-	{ // Вспомогательные функции --------------------------
+	{
+		// Вспомогательные функции --------------------------
 		delta := func(d int64) *int64 {
 			return &d
 		}

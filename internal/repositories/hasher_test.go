@@ -180,11 +180,12 @@ func TestCheckHash(t *testing.T) {
 		key  string
 	}
 	tests := []struct {
-		name     string
-		body     []byte
-		key      string
-		wantArgs args
-		wantErr  bool
+		name       string
+		body       []byte
+		key        string
+		wantArgs   args
+		wantResult bool
+		wantErr    bool
 	}{
 		{
 			name: "ok #1",
@@ -194,7 +195,8 @@ func TestCheckHash(t *testing.T) {
 				body: []byte("first body for ok test"),
 				key:  "secret key",
 			},
-			wantErr: false,
+			wantResult: true,
+			wantErr:    false,
 		},
 		{
 			name: "ok #2",
@@ -204,7 +206,8 @@ func TestCheckHash(t *testing.T) {
 				body: body2,
 				key:  "secret key",
 			},
-			wantErr: false,
+			wantResult: true,
+			wantErr:    false,
 		},
 		{
 			name: "different key, faile #1",
@@ -214,7 +217,8 @@ func TestCheckHash(t *testing.T) {
 				body: body2,
 				key:  "secret key",
 			},
-			wantErr: true,
+			wantResult: false,
+			wantErr:    false,
 		},
 		{
 			name: "different body, faile #2",
@@ -224,18 +228,22 @@ func TestCheckHash(t *testing.T) {
 				body: body2,
 				key:  "secret key",
 			},
-			wantErr: true,
+			wantResult: false,
+			wantErr:    false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			wantHash, err := CalkHash(tt.wantArgs.body, tt.wantArgs.key)
 			require.NoError(t, err)
-			if !tt.wantErr {
-				require.NoError(t, CheckHash(tt.body, wantHash, tt.key))
+			ok, err := CheckHash(tt.body, wantHash, tt.key)
+
+			if tt.wantErr {
+				require.Error(t, err)
 			} else {
-				require.Error(t, CheckHash(tt.body, wantHash, tt.key))
+				require.NoError(t, err)
 			}
+			assert.Equal(t, tt.wantResult, ok)
 		})
 	}
 }

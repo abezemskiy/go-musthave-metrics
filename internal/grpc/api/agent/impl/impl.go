@@ -11,6 +11,7 @@ import (
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/logger"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/metrics/checker"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/grpc/api/agent/interceptors/hasher"
 	pb "github.com/AntonBezemskiy/go-musthave-metrics/internal/grpc/protoc"
 	pbModel "github.com/AntonBezemskiy/go-musthave-metrics/internal/grpc/protoc/model"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
@@ -31,6 +32,7 @@ func InitClient(netAddr string) (*Client, error) {
 
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(hasher.UnaryClientInterceptor),
 	}
 
 	conn, err := grpc.NewClient(netAddr, opts...)
