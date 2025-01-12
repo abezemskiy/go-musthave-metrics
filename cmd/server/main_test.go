@@ -34,8 +34,6 @@ import (
 )
 
 func testRequest(t *testing.T, ts *httptest.Server, method, path string) *http.Response {
-	fmt.Printf("\n\nurl is %s, method is %s\n\n", ts.URL+path, method)
-
 	req, err := http.NewRequest(method, ts.URL+path, nil)
 	require.NoError(t, err)
 
@@ -43,6 +41,52 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string) *http.R
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	return resp
+}
+
+// Вспомогательная функция для получения значения метрики ответа сервера типа html
+func getPollCount(netAddr string) (int64, error) {
+	// Отправляю HTTP-запрос к серверу для получения списка метрик и их значений
+	resp, err := http.Get("http://" + netAddr + "/")
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("status is not 200")
+	}
+
+	// Читаю содержимое ответа
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, err
+	}
+
+	response := string(body)
+
+	// Извлекаю содержимое <pre>...</pre>
+	start := strings.Index(response, "<pre>")
+	end := strings.Index(response, "</pre>")
+	if start == -1 || end == -1 {
+		return 0, fmt.Errorf("Tag <pre> not found")
+	}
+	preContent := response[start+len("<pre>") : end]
+
+	// Регулярное выражение для метрики PollCount
+	re := regexp.MustCompile(`type:\s*counter,\s*name:\s*PollCount,\s*value:\s*([-+]?[0-9]*\.?[0-9]+)`)
+	match := re.FindStringSubmatch(preContent)
+
+	if len(match) < 2 {
+		return 0, fmt.Errorf("PollCount metric not found")
+	}
+
+	// Преобразую значение метрики PollCount в int64
+	pollCount, err := strconv.ParseInt(match[1], 10, 64)
+	if err != nil {
+		return 0, err
+	}
+
+	return pollCount, nil
 }
 
 func TestHandlerUpdate(t *testing.T) {
@@ -210,52 +254,6 @@ func TestHandlerUpdate(t *testing.T) {
 }
 
 func TestMusthaveMetrics(t *testing.T) {
-	// Вспомогательная функция для получения значения метрики ответа сервера типа html
-	getPollCount := func(netAddr string) (int64, error) {
-		// Отправляю HTTP-запрос к серверу для получения списка метрик и их значений
-		resp, err := http.Get("http://" + netAddr + "/")
-		if err != nil {
-			return 0, err
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			return 0, fmt.Errorf("status is not 200")
-		}
-
-		// Читаю содержимое ответа
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return 0, err
-		}
-
-		response := string(body)
-
-		// Извлекаю содержимое <pre>...</pre>
-		start := strings.Index(response, "<pre>")
-		end := strings.Index(response, "</pre>")
-		if start == -1 || end == -1 {
-			return 0, fmt.Errorf("Tag <pre> not found")
-		}
-		preContent := response[start+len("<pre>") : end]
-
-		// Регулярное выражение для метрики PollCount
-		re := regexp.MustCompile(`type:\s*counter,\s*name:\s*PollCount,\s*value:\s*([-+]?[0-9]*\.?[0-9]+)`)
-		match := re.FindStringSubmatch(preContent)
-
-		if len(match) < 2 {
-			return 0, fmt.Errorf("PollCount metric not found")
-		}
-
-		// Преобразую значение метрики PollCount в int64
-		pollCount, err := strconv.ParseInt(match[1], 10, 64)
-		if err != nil {
-			return 0, err
-		}
-
-		return pollCount, nil
-	}
-
 	// Функция для очистки данных в базе
 	cleanBD := func(dsn string) {
 		// очищаю данные в тестовой бд------------------------------------------------------
@@ -313,6 +311,12 @@ func TestMusthaveMetrics(t *testing.T) {
 	serverPort, err := getFreePort()
 	require.NoError(t, err)
 	serverAdress := fmt.Sprintf(":%d", serverPort)
+
+	// Определяю параметры для запуска grpc сервера
+	serverGRPCPort, err := getFreePort()
+	require.NoError(t, err)
+	serverGRPCAdress := fmt.Sprintf(":%d", serverGRPCPort)
+
 	databaseDsn := "host=localhost user=benchmarkmetrics password=password dbname=benchmarkmetrics sslmode=disable"
 
 	// Очищаю данные в БД от предыдущих запусков
@@ -321,7 +325,7 @@ func TestMusthaveMetrics(t *testing.T) {
 	defer cleanBD(databaseDsn)
 
 	// Запускаю server-----------------------------------------------------
-	cmdServer := exec.Command("./server", fmt.Sprintf("-a=%s", serverAdress),
+	cmdServer := exec.Command("./server", fmt.Sprintf("-a=%s", serverAdress), fmt.Sprintf("-grpc-address=%s", serverGRPCAdress),
 		fmt.Sprintf("-k=%s", key), fmt.Sprintf("-d=%s", databaseDsn), "-l=info", fmt.Sprintf("-crypto-key=%s", pathKeys+"/private_key.pem"))
 	// Связываем стандартный вывод и ошибки программы с выводом программы Go
 	cmdServer.Stdout = log.Writer()
@@ -348,7 +352,7 @@ func TestMusthaveMetrics(t *testing.T) {
 	agentAdress := serverAdress
 	reportInterval := 10
 	cmdAgent := exec.Command("./../agent/agent", fmt.Sprintf("-a=%s", agentAdress), fmt.Sprintf("-k=%s", key), fmt.Sprintf("-r=%d", reportInterval),
-		fmt.Sprintf("-crypto-key=%s", pathKeys+"/public_key.pem"))
+		fmt.Sprintf("-crypto-key=%s", pathKeys+"/public_key.pem"), fmt.Sprintf("-protocol=%s", "http"))
 	// Связываем стандартный вывод и ошибки программы с выводом программы Go
 	cmdAgent.Stdout = log.Writer()
 	cmdAgent.Stderr = log.Writer()
@@ -424,52 +428,6 @@ func TestMusthaveMetrics(t *testing.T) {
 }
 
 func TestGRPCMusthaveMetrics(t *testing.T) {
-	// Вспомогательная функция для получения значения метрики ответа сервера типа html
-	getPollCount := func(netAddr string) (int64, error) {
-		// Отправляю HTTP-запрос к серверу для получения списка метрик и их значений
-		resp, err := http.Get("http://" + netAddr + "/")
-		if err != nil {
-			return 0, err
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			return 0, fmt.Errorf("status is not 200")
-		}
-
-		// Читаю содержимое ответа
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return 0, err
-		}
-
-		response := string(body)
-
-		// Извлекаю содержимое <pre>...</pre>
-		start := strings.Index(response, "<pre>")
-		end := strings.Index(response, "</pre>")
-		if start == -1 || end == -1 {
-			return 0, fmt.Errorf("Tag <pre> not found")
-		}
-		preContent := response[start+len("<pre>") : end]
-
-		// Регулярное выражение для метрики PollCount
-		re := regexp.MustCompile(`type:\s*counter,\s*name:\s*PollCount,\s*value:\s*([-+]?[0-9]*\.?[0-9]+)`)
-		match := re.FindStringSubmatch(preContent)
-
-		if len(match) < 2 {
-			return 0, fmt.Errorf("PollCount metric not found")
-		}
-
-		// Преобразую значение метрики PollCount в int64
-		pollCount, err := strconv.ParseInt(match[1], 10, 64)
-		if err != nil {
-			return 0, err
-		}
-
-		return pollCount, nil
-	}
-
 	// Функция для очистки данных в базе
 	cleanBD := func(dsn string) {
 		// очищаю данные в тестовой бд------------------------------------------------------

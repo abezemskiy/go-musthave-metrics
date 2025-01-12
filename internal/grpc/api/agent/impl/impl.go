@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/status"
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/logger"
@@ -32,6 +33,7 @@ func InitClient(netAddr string) (*Client, error) {
 
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(grpc.UseCompressor(gzip.Name)),
 		grpc.WithUnaryInterceptor(hasher.UnaryClientInterceptor),
 	}
 

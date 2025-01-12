@@ -2,6 +2,7 @@ package impl
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"strconv"
@@ -21,6 +22,20 @@ import (
 )
 
 func TestAddMetric(t *testing.T) {
+	// функция для получения свободного порта для запуска приложений
+	getFreePort := func() (int, error) {
+		// Слушаем на порту 0, чтобы операционная система выбрала свободный порт
+		listener, err := net.Listen("tcp", ":0")
+		if err != nil {
+			return 0, err
+		}
+		defer listener.Close()
+
+		// Получаем назначенный системой порт
+		port := listener.Addr().(*net.TCPAddr).Port
+		return port, nil
+	}
+
 	// Вспомогательные функции --------------------------
 	delta := func(d int64) *int64 {
 		return &d
@@ -54,7 +69,9 @@ func TestAddMetric(t *testing.T) {
 	}
 	{
 		// Адрес запуска сервера -----------------------------
-		netAddr := "localhost:8082"
+		serverPort, err := getFreePort()
+		require.NoError(t, err)
+		netAddr := fmt.Sprintf("localhost:%d", serverPort)
 
 		// Создаю хранилище метрик
 		stor := storage.NewDefaultMemStorage()
