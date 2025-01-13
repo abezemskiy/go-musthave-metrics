@@ -15,24 +15,30 @@ import (
 )
 
 func TestRun(t *testing.T) {
-	metrics := storage.NewMetricsStats()
+	{
+		metrics := storage.NewMetricsStats()
 
-	err := logger.Initialize("debug")
-	require.NoError(t, err)
+		err := logger.Initialize("debug")
+		require.NoError(t, err)
 
-	// Запускаем run в отдельной горутине
-	go func() {
-		time.Sleep(100 * time.Millisecond) // даю run время для старта
-		// имитирую сигнал завершения
-		p, _ := os.FindProcess(os.Getpid())
-		_ = p.Signal(os.Interrupt)
-	}()
+		// Запускаем run в отдельной горутине
+		go func() {
+			time.Sleep(100 * time.Millisecond) // даю run время для старта
+			// имитирую сигнал завершения
+			p, _ := os.FindProcess(os.Getpid())
+			_ = p.Signal(os.Interrupt)
+		}()
 
-	err = run(metrics)
-	require.NoError(t, err)
+		err = run(metrics)
+		require.NoError(t, err)
 
-	// проверяю, что контекст завершился
-	require.NotNil(t, logger.AgentLog, "AgentLog should be initialized")
+		// проверяю, что контекст завершился
+		require.NotNil(t, logger.AgentLog, "AgentLog should be initialized")
+	}
+	{
+		err := run(nil)
+		require.Error(t, err)
+	}
 }
 
 func TestGeneratePushTasks(t *testing.T) {

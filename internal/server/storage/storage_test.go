@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
 )
 
 func TestNewDefaultMemStorage(t *testing.T) {
@@ -335,5 +337,27 @@ func TestMemStorage_Clean(t *testing.T) {
 	_, err = stor.GetMetric(ctx, "counter", "first counter")
 	require.Error(t, err)
 	_, err = stor.GetMetric(ctx, "gauge", "first gauge")
+	require.Error(t, err)
+}
+
+func TestAddMetricsFromSlice(t *testing.T) {
+	stor := NewDefaultMemStorage()
+
+	// Error: metrics is nil
+	err := stor.AddMetricsFromSlice(context.Background(), nil)
+	require.NoError(t, err)
+
+	// Gauge value is nil
+	err = stor.AddMetricsFromSlice(context.Background(), []repositories.Metric{{
+		MType: "gauge",
+		ID:    "test gauge",
+	}})
+	require.Error(t, err)
+
+	// Counter delta is nil
+	err = stor.AddMetricsFromSlice(context.Background(), []repositories.Metric{{
+		MType: "counter",
+		ID:    "test counter",
+	}})
 	require.Error(t, err)
 }

@@ -46,6 +46,16 @@ func TestUnaryServerInterceptor(t *testing.T) {
 		return &d
 	}
 
+	// Функция для инициализации клиента-------------------------------------------------------------
+	initClient := func(netAddr string) (pb.ServiceClient, *grpc.ClientConn, error) {
+		conn, err := grpc.NewClient(netAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create a new client: %w", err)
+		}
+		client := pb.NewServiceClient(conn)
+		return client, conn, err
+	}
+
 	{
 		// Устанавливаю секретный ключ
 		key1 := "secret key for test1"
@@ -79,16 +89,6 @@ func TestUnaryServerInterceptor(t *testing.T) {
 				log.Printf("server stoped with error %v", err)
 			}
 		}(lis)
-
-		// Функция для инициализации клиента-------------------------------------------------------------
-		initClient := func() (pb.ServiceClient, *grpc.ClientConn, error) {
-			conn, err := grpc.NewClient(netAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-			if err != nil {
-				return nil, nil, fmt.Errorf("failed to create a new client: %w", err)
-			}
-			client := pb.NewServiceClient(conn)
-			return client, conn, err
-		}
 
 		// Создаю тестовый запрос
 		goodCaunterMetric := pbModel.Metric{
@@ -166,7 +166,7 @@ func TestUnaryServerInterceptor(t *testing.T) {
 			for _, tt := range tests {
 				t.Run(tt.name, func(t *testing.T) {
 					// Запускаю клиента -------------------------------------------------------------------------
-					client, conn, err := initClient()
+					client, conn, err := initClient(netAddr)
 					defer conn.Close()
 					require.NoError(t, err)
 
@@ -211,6 +211,68 @@ func TestUnaryServerInterceptor(t *testing.T) {
 				})
 			}
 		}
+	}
+	// Не устанавливаю секретный ключ и запрос выполняется без вмешательства перехватчика
+	{
+		// Не устанавливаю секретный ключ
+		key1 := ""
+		httpHasher.SetKey(key1)
+
+		// Адрес запуска сервера -----------------------------
+		serverPort, err := getFreePort()
+		require.NoError(t, err)
+		netAddr := fmt.Sprintf("localhost:%d", serverPort)
+
+		// инициализирую хранилище метрик
+		stor := storage.NewDefaultMemStorage()
+
+		// Запускаю сервер----------------------------------------------------------------------------
+		lis, err := net.Listen("tcp", netAddr)
+		require.NoError(t, err)
+
+		// Устанавливаю тестируемый перехватчик
+		grpcServer := grpc.NewServer(
+			grpc.UnaryInterceptor(UnaryServerInterceptor),
+		)
+		// Останавливаю сервер после окончания теста
+		defer grpcServer.Stop()
+		pb.RegisterServiceServer(grpcServer, impl.NewServer(stor))
+
+		reflection.Register(grpcServer)
+
+		go func(lis net.Listener) {
+			err := grpcServer.Serve(lis)
+			if err != nil {
+				log.Printf("server stoped with error %v", err)
+			}
+		}(lis)
+
+		// Создаю тестовый запрос
+		goodCaunterMetric := pbModel.Metric{
+			Id:    "good caunter metric",
+			Mtype: "counter",
+			Delta: delta(334643),
+		}
+		req := &pbModel.AddMetricRequest{
+			Metric: &goodCaunterMetric,
+		}
+
+		// Запускаю клиента -------------------------------------------------------------------------
+		client, conn, err := initClient(netAddr)
+		defer conn.Close()
+		require.NoError(t, err)
+
+		// отправляю метрику
+		responce, err := client.AddMetric(context.Background(), req)
+		require.NoError(t, err)
+
+		// проверяю ответ сервера, сервер должен вернуть теже метрику, что отправил клиент
+		require.NotNil(t, responce)
+		require.NotNil(t, responce.Metric)
+
+		assert.Equal(t, goodCaunterMetric.Id, responce.Metric.Id)
+		assert.Equal(t, goodCaunterMetric.Mtype, responce.Metric.Mtype)
+		assert.Equal(t, goodCaunterMetric.Delta, responce.Metric.Delta)
 	}
 }
 

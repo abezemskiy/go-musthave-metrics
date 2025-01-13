@@ -13,14 +13,14 @@ func InTrustedSubNet(trustedSubnet, realIP string) (bool, error) {
 		return false, fmt.Errorf("parse CIDR error: %v", err)
 	}
 
-	realIpWithoutPort, err := getClientIP(realIP)
+	realIPWithoutPort, err := getClientIP(realIP)
 	if err != nil {
 		return false, fmt.Errorf("parse real client ip error %v", err)
 	}
 
-	ip := net.ParseIP(realIpWithoutPort)
+	ip := net.ParseIP(realIPWithoutPort)
 	if ip == nil {
-
+		return false, fmt.Errorf("parse real client ip error %v", err)
 	}
 	return ipNet.Contains(ip), nil
 }

@@ -32,4 +32,13 @@ clean-gen-proto:
 
 .PHONY: test-coverpkg
 test-coverpkg:
-	@go test -coverpkg=./... -coverprofile=coverage.out $$(go list ./... | grep -v -e '/mocks' -e '/proto')
+	@INCLUDE_PACKAGES=$$(go list ./... | grep -v -E '/mocks|/protoc') && \
+	go test -coverpkg=$$(echo $$INCLUDE_PACKAGES | tr ' ' ',') -coverprofile=coverage_raw.out $$INCLUDE_PACKAGES && \
+	grep -v -E "go-musthave-metrics/cmd/staticlint/main.go|go-musthave-metrics/cmd/server/main.go" coverage_raw.out > coverage.out && \
+	rm coverage_raw.out
+
+
+
+.PHONY: gen-mocks
+gen-mocks:
+

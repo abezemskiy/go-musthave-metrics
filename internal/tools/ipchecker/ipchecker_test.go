@@ -63,6 +63,13 @@ func TestInTrustedSubNet(t *testing.T) {
 			wantRes: false,
 			wantErr: true,
 		},
+		{
+			name:    "wrong real ip",
+			subNet:  "192.168.14.0/16",
+			realIP:  "invalid:address:with:too:many:colons",
+			wantRes: false,
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -115,6 +122,12 @@ func TestGetClientIP(t *testing.T) {
 			ipAddress:   "wrong_address",
 			wantAddress: "wrong_address",
 			wantErr:     false,
+		},
+		{
+			name:        "wrong ip address test#6",
+			ipAddress:   "invalid:address:with:too:many:colons",
+			wantAddress: "",
+			wantErr:     true,
 		},
 	}
 	for _, tt := range tests {

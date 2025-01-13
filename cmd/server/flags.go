@@ -139,6 +139,7 @@ func parseConfigFile() {
 	// обновляю параметры запуска
 	flagNetAddr = configs.Address
 	flagGRPCNetAddr = configs.GRPCAddress
+	flagLogLevel = configs.LogLevel
 	flagRestore = configs.Restore
 	flagStoreInterval = int(configs.StoreInterval.Duration.Seconds())
 	flagFileStoragePath = configs.StoreFile

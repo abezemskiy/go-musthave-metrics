@@ -75,6 +75,7 @@ func UnaryClientInterceptor(ctx context.Context, method string, req, reply inter
 	return nil
 }
 
+// SetHash - вспомогательная функция подписи запроса у установки хэша в контекст.
 func SetHash(ctx context.Context, req proto.Message, secretKey string) (context.Context, error) {
 	// подписываю запрос
 	hash, err := serverHasher.CalkHash(req, secretKey)

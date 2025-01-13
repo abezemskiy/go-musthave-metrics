@@ -270,6 +270,13 @@ func PushBatch(address, action string, metricsSlice []repositories.Metric, clien
 
 // PrepareAndPushBatch - строит батч метрик и вызывает функцию для отправки батча на сервер в рамках одной передачи.
 func PrepareAndPushBatch(address, action string, metrics *storage.MetricsStats, client *resty.Client) error {
+	if metrics == nil {
+		return fmt.Errorf("metrics is not initialize")
+	}
+	if client == nil {
+		return fmt.Errorf("resty client is not initialize")
+	}
+
 	metrics.Lock()
 	defer metrics.Unlock()
 

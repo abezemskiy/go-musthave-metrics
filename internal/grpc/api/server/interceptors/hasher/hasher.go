@@ -87,6 +87,7 @@ func UnaryServerInterceptor(ctx context.Context, req any, info *grpc.UnaryServer
 	return
 }
 
+// CalkHash - вспомогательная функция для вычисления хэша из proto сообщения с помощью секретного ключа.
 func CalkHash(resp proto.Message, key string) (string, error) {
 	// Сериализация protoc сообщения в байты
 	body, err := proto.Marshal(resp)
@@ -101,6 +102,8 @@ func CalkHash(resp proto.Message, key string) (string, error) {
 	return res, nil
 }
 
+// CheckHash - вспомогательная функция для проверки переданного хэша и расчитанного из proto сообщения
+// используя секретный ключ.
 func CheckHash(resp proto.Message, wantHash, key string) (bool, error) {
 	// Сериализация protoc сообщения в байты
 	body, err := proto.Marshal(resp)

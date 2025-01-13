@@ -61,7 +61,7 @@ func TestMiddleware(t *testing.T) {
 			name:     "wrong real ip",
 			subNet:   "192.168.14.0/16",
 			realIP:   "wrong.real.ip",
-			wantCode: 403,
+			wantCode: 500,
 		},
 		{
 			name:     "empty real ip",

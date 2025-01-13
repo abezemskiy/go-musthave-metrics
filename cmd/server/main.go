@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -150,7 +151,7 @@ func run(stor repositories.IStorage, saverVar saver.FileWriter, db *sql.DB, save
 	// Подготовка grpc сервера----------------------------------------------------------
 	lis, err := net.Listen("tcp", flagGRPCNetAddr)
 	if err != nil {
-		log.Fatalf("Error starting gRPC server: %v", err)
+		return fmt.Errorf("error starting gRPC server: %v", err)
 	}
 	opts := []logging.Option{
 		// Логирование конца вызова

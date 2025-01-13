@@ -29,6 +29,7 @@ import (
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/handlers"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/pg"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/saver"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/storage"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/tools/encryption"
 )
@@ -250,6 +251,22 @@ func TestHandlerUpdate(t *testing.T) {
 		require.NoError(t, errGetSlice)
 		deep.Equal(wantAllSlice, getAllSlice)
 		resp.Body.Close()
+	}
+}
+
+func TestRun(t *testing.T) {
+	// Тест с ошибкой инициализации логера из-за невалидного флага уровня логирования
+	{
+		flagLogLevel = "wrong file"
+		err := run(nil, nil, nil, 0)
+		require.Error(t, err)
+	}
+	{
+		// Тест с ошибкой запуска из-за неправильного пути к файлу хранения данных
+		flagLogLevel = "info"
+		saver.SetFilestoragePath("./wrong/path")
+		err := run(nil, nil, nil, 1)
+		require.Error(t, err)
 	}
 }
 

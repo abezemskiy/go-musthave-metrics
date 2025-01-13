@@ -18,13 +18,10 @@ import (
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
 )
 
+// Client - структура для реализации proto интерфейса клиента.
 type Client struct {
 	pb.ServiceClient
 	conn *grpc.ClientConn
-}
-
-func (cl *Client) Close() {
-	cl.conn.Close()
 }
 
 // InitClient - функция для инициализации gRPC клиента.

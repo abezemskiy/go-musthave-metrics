@@ -37,6 +37,11 @@ func main() {
 
 // run - будет полезна при инициализации зависимостей агента перед запуском
 func run(metrics *storage.MetricsStats) error {
+	// Проверка хранилища на nil
+	if metrics == nil {
+		return fmt.Errorf("storage is nil")
+	}
+
 	// инициализация логера
 	if err := logger.Initialize(flagLogLevel); err != nil {
 		return err

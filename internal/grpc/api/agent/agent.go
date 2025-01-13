@@ -14,6 +14,7 @@ import (
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/grpc/api/agent/impl"
 )
 
+// Worker - структура для реализации патерна worker pool.
 type Worker struct {
 	cl                 *impl.Client
 	metrics            *storage.MetricsStats
@@ -21,6 +22,7 @@ type Worker struct {
 	ctx                context.Context
 }
 
+// Do - метод для выполнения задачи.
 func (w *Worker) Do() error {
 	metricsSlice := builder.BuildSlice(w.metrics)
 
@@ -36,6 +38,7 @@ func (w *Worker) Do() error {
 	return nil
 }
 
+// NewTask - фабричная функция структуры Worker.
 func NewWorker(ctx context.Context, netAddr, transmittionMethod string, metrics *storage.MetricsStats) *Worker {
 	cl, err := impl.InitClient(netAddr)
 	// Если инициализация клиента завершилась ошибкой считаю это критической ошибкой, так как это мешает корректно запустить работу агента.

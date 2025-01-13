@@ -190,9 +190,6 @@ func UpdateMetricsBatch(res http.ResponseWriter, req *http.Request, storage repo
 
 	logger.ServerLog.Debug("Successful decode metrcic from json", zap.String("address: ", req.URL.String()))
 
-	bodyDebug, _ := io.ReadAll(req.Body)
-	logger.ServerLog.Debug("message before compress", zap.String("bytes: ", string(bodyDebug)))
-
 	// устанавливаю заголовок таким образом вместо WriteHeader(http.StatusOK), потому что
 	// далее в методе Write в middleware необходимо установить заголовок Hash со значением хэша,
 	// а после WriteHeader заголовки уже не устанавливаются
@@ -204,9 +201,7 @@ func UpdateMetricsBatch(res http.ResponseWriter, req *http.Request, storage repo
 		return
 	}
 
-	logger.ServerLog.Debug("successful write encode data to answer message in UpdateMetricsBatch")
-
-	logger.ServerLog.Debug("server answer is", zap.String("Content-Encoding", res.Header().Get("Content-Encoding")),
+	logger.ServerLog.Debug("successful write encode data, server answer is", zap.String("Content-Encoding", res.Header().Get("Content-Encoding")),
 		zap.String("Status-Code", res.Header().Get("Status-Code")),
 		zap.String("Content-Type", res.Header().Get("Content-Type")),
 		zap.String("HashSHA256", res.Header().Get("HashSHA256")))

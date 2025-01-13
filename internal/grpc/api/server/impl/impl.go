@@ -13,11 +13,13 @@ import (
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/logger"
 )
 
+// Server - структура для реализации proto интерфейса сервера.
 type Server struct {
 	pb.UnimplementedServiceServer
 	storage repositories.IStorage
 }
 
+// NewServer - фабричная функция структуры Server.
 func NewServer(stor repositories.IStorage) *Server {
 	return &Server{
 		storage: stor,
