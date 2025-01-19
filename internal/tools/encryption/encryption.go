@@ -69,20 +69,12 @@ func (c *Cryptographer) Decrypt(data []byte) ([]byte, error) {
 
 // PublicKeyIsSet - функция для определения того, что задан ли публичный ключ шифрования
 func (c *Cryptographer) PublicKeyIsSet() bool {
-	if c.publicKeyPath != "" {
-		return true
-	} else {
-		return false
-	}
+	return c.publicKeyPath != ""
 }
 
 // PrivateKeyIsSet - функция для определения того, что задан ли приватный ключ шифрования
 func (c *Cryptographer) PrivateKeyIsSet() bool {
-	if c.privateKeyPath != "" {
-		return true
-	} else {
-		return false
-	}
+	return c.privateKeyPath != ""
 }
 
 // GenerateKeys генерирует и сохраняет пару RSA-ключей

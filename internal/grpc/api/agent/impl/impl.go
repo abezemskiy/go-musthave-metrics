@@ -69,9 +69,8 @@ func AddMetric(ctx context.Context, cl *Client, metricsSlice []repositories.Metr
 		if err != nil {
 			if e, ok := status.FromError(err); ok {
 				return fmt.Errorf("error of add metric to server: %v", e.Message())
-			} else {
-				return fmt.Errorf("error of add metric to server, can't parse error: %v", err)
 			}
+			return fmt.Errorf("error of add metric to server, can't parse error: %v", err)
 		}
 		if resp.Error != nil && *resp.Error != "" {
 			return fmt.Errorf("error of add metric to server, error from server response: %s", *resp.Error)

@@ -34,9 +34,8 @@ func RetryExecPushFunction(address, action string, metrics *storage.MetricsStats
 			checker.IsDBTransportError(err)) ||
 			checker.IsFileLockedError(err) {
 			continue
-		} else {
-			return
 		}
+		return
 	}
 }
 
