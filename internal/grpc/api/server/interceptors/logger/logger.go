@@ -14,7 +14,7 @@ import (
 // InterceptorLogger adapts zap logger to interceptor logger.
 // This code is simple enough to be copied and not imported.
 func Logger(l *zap.Logger) logging.Logger {
-	return logging.LoggerFunc(func(ctx context.Context, lvl logging.Level, msg string, fields ...any) {
+	return logging.LoggerFunc(func(_ context.Context, lvl logging.Level, msg string, fields ...any) {
 		f := make([]zap.Field, 0, len(fields)/2)
 
 		for i := 0; i < len(fields); i += 2 {
