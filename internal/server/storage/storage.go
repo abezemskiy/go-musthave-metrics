@@ -41,7 +41,7 @@ func NewMemStorage(gaugesArg map[string]float64, countersArg map[string]int64) *
 }
 
 // AddGauge - реализует метод AddGauge интерфейса repositories.ServerRepo.
-func (storage *MemStorage) AddGauge(ctx context.Context, name string, guage float64) error {
+func (storage *MemStorage) AddGauge(_ context.Context, name string, guage float64) error {
 	storage.Mutex.Lock()
 	defer storage.Mutex.Unlock()
 	storage.gauges[name] = guage
@@ -49,7 +49,7 @@ func (storage *MemStorage) AddGauge(ctx context.Context, name string, guage floa
 }
 
 // AddCounter - реализует метод AddCounter интерфейса repositories.ServerRepo.
-func (storage *MemStorage) AddCounter(ctx context.Context, name string, counter int64) error {
+func (storage *MemStorage) AddCounter(_ context.Context, name string, counter int64) error {
 	storage.Mutex.Lock()
 	defer storage.Mutex.Unlock()
 	storage.counters[name] += counter
@@ -57,7 +57,7 @@ func (storage *MemStorage) AddCounter(ctx context.Context, name string, counter 
 }
 
 // GetMetric - реализует метод GetMetric интерфейса repositories.ServerRepo.
-func (storage *MemStorage) GetMetric(ctx context.Context, metricType, name string) (string, error) {
+func (storage *MemStorage) GetMetric(_ context.Context, metricType, name string) (string, error) {
 	storage.Mutex.Lock()
 	defer storage.Mutex.Unlock()
 
@@ -80,7 +80,7 @@ func (storage *MemStorage) GetMetric(ctx context.Context, metricType, name strin
 }
 
 // GetAllMetrics - реализует метод GetAllMetrics интерфейса repositories.ServerRepo.
-func (storage *MemStorage) GetAllMetrics(ctx context.Context) (string, error) {
+func (storage *MemStorage) GetAllMetrics(_ context.Context) (string, error) {
 	storage.Mutex.Lock()
 	defer storage.Mutex.Unlock()
 
@@ -96,7 +96,7 @@ func (storage *MemStorage) GetAllMetrics(ctx context.Context) (string, error) {
 }
 
 // GetAllMetricsSlice - реализует метод GetAllMetricsSlice интерфейса repositories.ServerRepo.
-func (storage *MemStorage) GetAllMetricsSlice(ctx context.Context) ([]repositories.Metric, error) {
+func (storage *MemStorage) GetAllMetricsSlice(_ context.Context) ([]repositories.Metric, error) {
 	storage.Mutex.Lock()
 	defer storage.Mutex.Unlock()
 
@@ -152,12 +152,12 @@ func (storage *MemStorage) AddMetricsFromSlice(ctx context.Context, metrics []re
 }
 
 // MemStorage_Bootstrap - реализует метод Bootstrap интерфейса repositories.ServerRepo.
-func (storage *MemStorage) Bootstrap(ctx context.Context) error {
+func (storage *MemStorage) Bootstrap(_ context.Context) error {
 	return nil
 }
 
 // Clean - очищает хранилище от данных.
-func (storage *MemStorage) Clean(ctx context.Context) {
+func (storage *MemStorage) Clean(_ context.Context) {
 	storage.counters = map[string]int64{}
 	storage.gauges = map[string]float64{}
 }

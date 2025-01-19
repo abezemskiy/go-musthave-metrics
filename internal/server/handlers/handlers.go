@@ -38,7 +38,7 @@ func init() {
 }
 
 // OtherRequest - обработка нераспознанных http запросов к сервису.
-func OtherRequest(res http.ResponseWriter, req *http.Request) {
+func OtherRequest(res http.ResponseWriter, _ *http.Request) {
 	res.Header().Set("Content-Type", "text/plain")
 	res.WriteHeader(http.StatusNotFound)
 }

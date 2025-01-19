@@ -27,7 +27,7 @@ func GetKey() string {
 }
 
 // VerifyHashMiddleware - проверяет хэш тела ответа
-func VerifyHashMiddleware(c *resty.Client, resp *resty.Response) error {
+func VerifyHashMiddleware(_ *resty.Client, resp *resty.Response) error {
 	// Если ключ не задан, то проверять подпись данных не нужно
 	if k := GetKey(); k == "" {
 		return nil

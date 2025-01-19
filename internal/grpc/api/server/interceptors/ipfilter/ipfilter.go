@@ -16,7 +16,7 @@ import (
 
 // UnaryServerInterceptor - перехватчик проверки вхождения ip адреса клиента в доверенную сеть сервера. Ip адрес извлекается из заголовка контекста.
 // Проверка осуществляется только в случае, если установлена переменная trustedSubnet.
-func UnaryServerInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
+func UnaryServerInterceptor(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
 	subnet := httpIpfilter.GetTrustedSubnet()
 
 	// проверяю вхождение Ip адреса в доверенную сеть только в том случае, если установлена переменная trustedSubnet

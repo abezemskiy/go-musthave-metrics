@@ -29,7 +29,7 @@ import (
 )
 
 func serverInterceptor(secretKey, serverHash string) grpc.UnaryServerInterceptor {
-	interceptor := func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
+	interceptor := func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
 
 		// Если не сервере не задан секретный ключ для подписи данных, то эта операция не производится
 		if k := httpHasher.GetKey(); k == "" {

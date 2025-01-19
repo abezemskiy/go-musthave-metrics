@@ -38,7 +38,7 @@ func (w *Worker) Do(ctx context.Context) error {
 }
 
 // NewTask - фабричная функция структуры Worker.
-func NewWorker(ctx context.Context, netAddr, transmittionMethod string, metrics *storage.MetricsStats) *Worker {
+func NewWorker(netAddr, transmittionMethod string, metrics *storage.MetricsStats) *Worker {
 	cl, err := impl.InitClient(netAddr)
 	// Если инициализация клиента завершилась ошибкой считаю это критической ошибкой, так как это мешает корректно запустить работу агента.
 	if err != nil {
@@ -55,7 +55,7 @@ func NewWorker(ctx context.Context, netAddr, transmittionMethod string, metrics 
 func InitWorkerAndDo(ctx context.Context, netAddr, transmittionMethod string, metrics *storage.MetricsStats, pushTasks <-chan struct{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	worker := NewWorker(ctx, netAddr, transmittionMethod, metrics)
+	worker := NewWorker(netAddr, transmittionMethod, metrics)
 
 	for range pushTasks {
 		err := worker.Do(ctx)

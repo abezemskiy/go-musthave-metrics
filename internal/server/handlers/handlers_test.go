@@ -87,7 +87,7 @@ type errorWriter struct {
 	StatusCode int
 }
 
-func (e *errorWriter) Write(p []byte) (int, error) {
+func (e *errorWriter) Write(_ []byte) (int, error) {
 	return 0, errors.New("simulated connection error")
 }
 
@@ -226,7 +226,7 @@ func TestGetGlobal(t *testing.T) {
 		}
 
 		r := chi.NewRouter()
-		r.Get("/test", func(res http.ResponseWriter, req *http.Request) {
+		r.Get("/test", func(_ http.ResponseWriter, req *http.Request) {
 			GetGlobal(&errorWriter, req, m)
 		})
 

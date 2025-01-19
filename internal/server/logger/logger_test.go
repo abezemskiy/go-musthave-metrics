@@ -146,7 +146,7 @@ func TestWriteHeader(t *testing.T) {
 func TestRequestLogger(t *testing.T) {
 
 	testHandler := func() http.HandlerFunc {
-		return func(res http.ResponseWriter, req *http.Request) {
+		return func(res http.ResponseWriter, _ *http.Request) {
 			res.WriteHeader(200)
 		}
 	}

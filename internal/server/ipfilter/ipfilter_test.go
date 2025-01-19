@@ -22,7 +22,7 @@ func TestGetTrustedSubnet(t *testing.T) {
 
 func TestMiddleware(t *testing.T) {
 	testHandler := func() http.HandlerFunc {
-		fn := func(res http.ResponseWriter, req *http.Request) {
+		fn := func(res http.ResponseWriter, _ *http.Request) {
 			res.WriteHeader(200)
 		}
 		return fn

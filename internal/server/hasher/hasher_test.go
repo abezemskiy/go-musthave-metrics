@@ -29,7 +29,7 @@ func TestGetKey(t *testing.T) {
 
 type errorReader struct{}
 
-func (e *errorReader) Read(p []byte) (int, error) {
+func (e *errorReader) Read(_ []byte) (int, error) {
 	return 0, errors.New("simulated connection error")
 }
 
@@ -43,7 +43,7 @@ func TestHashMiddleware(t *testing.T) {
 	}
 
 	testHandler := func() http.HandlerFunc {
-		fn := func(res http.ResponseWriter, req *http.Request) {
+		fn := func(res http.ResponseWriter, _ *http.Request) {
 			res.WriteHeader(200)
 		}
 		return fn
