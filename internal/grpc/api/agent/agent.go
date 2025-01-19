@@ -19,16 +19,15 @@ type Worker struct {
 	cl                 *impl.Client
 	metrics            *storage.MetricsStats
 	transmittionMethod string
-	ctx                context.Context
 }
 
 // Do - метод для выполнения задачи.
-func (w *Worker) Do() error {
+func (w *Worker) Do(ctx context.Context) error {
 	metricsSlice := builder.BuildSlice(w.metrics)
 
 	switch w.transmittionMethod {
 	case "AddMetric":
-		err := impl.AddMetric(w.ctx, w.cl, metricsSlice)
+		err := impl.AddMetric(ctx, w.cl, metricsSlice)
 		if err != nil {
 			return fmt.Errorf("failed to send a message to the server with AddMetric method: %v", err)
 		}
@@ -49,7 +48,6 @@ func NewWorker(ctx context.Context, netAddr, transmittionMethod string, metrics 
 		cl:                 cl,
 		metrics:            metrics,
 		transmittionMethod: transmittionMethod,
-		ctx:                ctx,
 	}
 }
 
@@ -60,7 +58,7 @@ func InitWorkerAndDo(ctx context.Context, netAddr, transmittionMethod string, me
 	worker := NewWorker(ctx, netAddr, transmittionMethod, metrics)
 
 	for range pushTasks {
-		err := worker.Do()
+		err := worker.Do(ctx)
 
 		if err != nil {
 			logger.AgentLog.Error("do work error", zap.String("error", err.Error()))
