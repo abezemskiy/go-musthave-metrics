@@ -61,22 +61,22 @@ func (storage *MemStorage) GetMetric(ctx context.Context, metricType, name strin
 	storage.Mutex.Lock()
 	defer storage.Mutex.Unlock()
 
-	if metricType == "gauge" {
+	switch metricType {
+	case "gauge":
 		val, ok := storage.gauges[name]
 		if !ok {
 			return "", fmt.Errorf("metric %s of type gauge not found", name)
 		}
 		return fmt.Sprintf("%g", val), nil
-	}
-
-	if metricType == "counter" {
+	case "counter":
 		val, ok := storage.counters[name]
 		if !ok {
 			return "", fmt.Errorf("metric %s of type counter not found", name)
 		}
 		return fmt.Sprintf("%d", val), nil
+	default:
+		return "", fmt.Errorf("whrong type of metric")
 	}
-	return "", fmt.Errorf("whrong type of metric")
 }
 
 // GetAllMetrics - реализует метод GetAllMetrics интерфейса repositories.ServerRepo.
@@ -127,7 +127,8 @@ func (storage *MemStorage) AddMetricsFromSlice(ctx context.Context, metrics []re
 	}
 
 	for _, metric := range metrics {
-		if metric.MType == "gauge" {
+		switch metric.MType {
+		case "gauge":
 			if metric.Value == nil {
 				return fmt.Errorf("invalid metric, value of gauge metric is nil")
 			}
@@ -135,7 +136,7 @@ func (storage *MemStorage) AddMetricsFromSlice(ctx context.Context, metrics []re
 			if err != nil {
 				return fmt.Errorf("add gauge error: %f", err)
 			}
-		} else if metric.MType == "counter" {
+		case "counter":
 			if metric.Delta == nil {
 				return fmt.Errorf("invalid metric, delta of counter metric is nil")
 			}
@@ -143,7 +144,7 @@ func (storage *MemStorage) AddMetricsFromSlice(ctx context.Context, metrics []re
 			if err != nil {
 				return fmt.Errorf("add counter error: %f", err)
 			}
-		} else {
+		default:
 			return fmt.Errorf("invalid metric, undefined type of metric: %s", metric.MType)
 		}
 	}

@@ -104,18 +104,21 @@ func (s Store) GetMetric(ctx context.Context, metricType string, metricName stri
 	if metric.MType != metricType {
 		return "", fmt.Errorf("metric type is different, metric type in database is: %s, metric type in request is: %s", metric.MType, metricType)
 	}
-	if metric.MType == "gauge" {
+
+	switch metric.MType {
+	case "gauge":
 		if metric.Value == nil {
 			return "", fmt.Errorf("value of gauge metric is nil")
 		}
 		return fmt.Sprintf("%g", *metric.Value), nil
-	} else if metric.MType == "counter" {
+	case "counter":
 		if metric.Delta == nil {
 			return "", fmt.Errorf("value of counter metric is nil")
 		}
 		return fmt.Sprintf("%d", *metric.Delta), nil
+	default:
+		return "", fmt.Errorf("whrong type of metric")
 	}
-	return "", fmt.Errorf("whrong type of metric")
 }
 
 // AddGauge - реализует метод AddGauge интерфейса repositories.ServerRepo.
