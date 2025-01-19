@@ -489,7 +489,8 @@ func TestGetMetricJSON(t *testing.T) {
 		require.NoError(t, erReader)
 
 		saver.SetRestore(true)
-		saver.AddMetricsFromFile(stor, reader)
+		err = saver.AddMetricsFromFile(stor, reader)
+		require.NoError(t, err)
 
 		type want struct {
 			code        int
