@@ -65,7 +65,8 @@ func TestDisable(t *testing.T) {
 	// Добавляю ненулевую положительную gauge метрику
 	{
 		value := 82352.23532
-		stor.AddGauge(ctx, "positive gauge", value)
+		err := stor.AddGauge(ctx, "positive gauge", value)
+		require.NoError(t, err)
 		// проверяю наличие метрики в базе данных
 		valueGetStr, err := stor.GetMetric(ctx, "gauge", "positive gauge")
 		require.NoError(t, err)
@@ -79,6 +80,21 @@ func TestDisable(t *testing.T) {
 	{
 		// проверяю наличие метрики в базе данных
 		_, err := stor.GetMetric(ctx, "gauge", "positive gauge")
+		require.Error(t, err)
+	}
+
+	{
+		// Пытаюсь вызвать метод Disable, хотя контекст уже отменен
+		ctxCanceled, cancel := context.WithCancel(context.Background())
+		cancel()
+		err = stor.Disable(ctxCanceled)
+		require.Error(t, err)
+	}
+	{
+		// Пытаюсь вызвать метод Bootstrap, хотя контекст уже отменен
+		ctxCanceled, cancel := context.WithCancel(context.Background())
+		cancel()
+		err = stor.Bootstrap(ctxCanceled)
 		require.Error(t, err)
 	}
 }
@@ -132,7 +148,8 @@ func TestGetMetric(t *testing.T) {
 	// Добавляю ненулевую положительную gauge метрику
 	{
 		value := 82352.23532
-		stor.AddGauge(ctx, "positive gauge", value)
+		err := stor.AddGauge(ctx, "positive gauge", value)
+		require.NoError(t, err)
 		// проверяю наличие метрики в базе данных
 		valueGetStr, err := stor.GetMetric(ctx, "gauge", "positive gauge")
 		require.NoError(t, err)
@@ -143,7 +160,8 @@ func TestGetMetric(t *testing.T) {
 	// Добавляю ненулевую положительную counter метрику
 	{
 		value := int64(82352)
-		stor.AddCounter(ctx, "positive counter", value)
+		err := stor.AddCounter(ctx, "positive counter", value)
+		require.NoError(t, err)
 		// проверяю наличие метрики в базе данных
 		valueGetStr, err := stor.GetMetric(ctx, "counter", "positive counter")
 		require.NoError(t, err)
@@ -168,6 +186,13 @@ func TestGetMetric(t *testing.T) {
 	// попытка получить метрику с неверным типом
 	{
 		_, err := stor.GetMetric(ctx, "wrong metric type", "")
+		require.Error(t, err)
+	}
+	// попытка получить метрику с отмененным контекстом
+	{
+		ctxCanceled, cancel := context.WithCancel(context.Background())
+		cancel()
+		_, err := stor.GetMetric(ctxCanceled, "wrong metric type", "")
 		require.Error(t, err)
 	}
 }
@@ -220,9 +245,11 @@ func TestGetAllMetrics(t *testing.T) {
 
 	// Заполняю базу
 	valueGauge := 82352.23532
-	stor.AddGauge(ctx, "positive gauge", valueGauge)
+	err = stor.AddGauge(ctx, "positive gauge", valueGauge)
+	require.NoError(t, err)
 	valueCounter := int64(82352)
-	stor.AddCounter(ctx, "positive counter", valueCounter)
+	err = stor.AddCounter(ctx, "positive counter", valueCounter)
+	require.NoError(t, err)
 
 	// Проверяю результат
 	var result string
@@ -231,6 +258,12 @@ func TestGetAllMetrics(t *testing.T) {
 	get, err = stor.GetAllMetrics(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, result, get)
+
+	// попытка получения метрик, когда контекст уже отменен
+	ctx1, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err = stor.GetAllMetrics(ctx1)
+	require.Error(t, err)
 }
 
 func TestAddGauge(t *testing.T) {
@@ -282,7 +315,8 @@ func TestAddGauge(t *testing.T) {
 	// Добавляю ненулевую положительную метрику
 	{
 		value := 82352.23532
-		stor.AddGauge(ctx, "positive gauge", value)
+		err := stor.AddGauge(ctx, "positive gauge", value)
+		require.NoError(t, err)
 		// проверяю наличие метрики в базе данных
 		valueGetStr, err := stor.GetMetric(ctx, "gauge", "positive gauge")
 		require.NoError(t, err)
@@ -293,7 +327,8 @@ func TestAddGauge(t *testing.T) {
 	// Добавляю ненулевую отрицательную метрику
 	{
 		value := -82352.23532
-		stor.AddGauge(ctx, "negative gauge", value)
+		err := stor.AddGauge(ctx, "negative gauge", value)
+		require.NoError(t, err)
 		// проверяю наличие метрики в базе данных
 		valueGetStr, err := stor.GetMetric(ctx, "gauge", "negative gauge")
 		require.NoError(t, err)
@@ -304,13 +339,22 @@ func TestAddGauge(t *testing.T) {
 	// Добавляю нулевую метрику
 	{
 		value := 0.0
-		stor.AddGauge(ctx, "zero gauge", value)
+		err := stor.AddGauge(ctx, "zero gauge", value)
+		require.NoError(t, err)
 		// проверяю наличие метрики в базе данных
 		valueGetStr, err := stor.GetMetric(ctx, "gauge", "zero gauge")
 		require.NoError(t, err)
 		valueGet, err := strconv.ParseFloat(valueGetStr, 64)
 		require.NoError(t, err)
 		require.Equal(t, true, floatsEqual(value, valueGet, 0.00001))
+	}
+	// пытаюсь добавить метрику, хотя контекст уже отменен
+	{
+		ctx1, cancel := context.WithCancel(context.Background())
+		cancel()
+		value := 0.0
+		err := stor.AddGauge(ctx1, "zero gauge", value)
+		require.Error(t, err)
 	}
 }
 
@@ -358,7 +402,8 @@ func TestAddCounter(t *testing.T) {
 	// Добавляю ненулевую положительную метрику
 	{
 		value := int64(82352)
-		stor.AddCounter(ctx, "positive counter", value)
+		err := stor.AddCounter(ctx, "positive counter", value)
+		require.NoError(t, err)
 		// проверяю наличие метрики в базе данных
 		valueGetStr, err := stor.GetMetric(ctx, "counter", "positive counter")
 		require.NoError(t, err)
@@ -369,7 +414,8 @@ func TestAddCounter(t *testing.T) {
 	// Добавляю ненулевую отрицательную метрику
 	{
 		value := int64(-82352)
-		stor.AddCounter(ctx, "negative counter", value)
+		err := stor.AddCounter(ctx, "negative counter", value)
+		require.NoError(t, err)
 		// проверяю наличие метрики в базе данных
 		valueGetStr, err := stor.GetMetric(ctx, "counter", "negative counter")
 		require.NoError(t, err)
@@ -380,13 +426,22 @@ func TestAddCounter(t *testing.T) {
 	// Добавляю нулевую метрику
 	{
 		value := int64(0)
-		stor.AddCounter(ctx, "zero counter", value)
+		err := stor.AddCounter(ctx, "zero counter", value)
+		require.NoError(t, err)
 		// проверяю наличие метрики в базе данных
 		valueGetStr, err := stor.GetMetric(ctx, "counter", "zero counter")
 		require.NoError(t, err)
 		valueGet, err := strconv.ParseInt(valueGetStr, 10, 64)
 		require.NoError(t, err)
 		require.Equal(t, value, valueGet)
+	}
+	// пытаюсь добавить метрику, хотя контекст уже отменен
+	{
+		ctx1, cancel := context.WithCancel(context.Background())
+		cancel()
+		value := int64(0)
+		err := stor.AddCounter(ctx1, "zero gauge", value)
+		require.Error(t, err)
 	}
 }
 
@@ -519,6 +574,12 @@ func TestAddMetricsFromSlice(t *testing.T) {
 	valueGaugeGet, err = strconv.ParseFloat(valueGetStr, 64)
 	require.NoError(t, err)
 	require.Equal(t, true, floatsEqual(float64(0), valueGaugeGet, 0.00001))
+
+	// попытка добавить метрики, когда контекст уже отменен
+	ctx1, cancel := context.WithCancel(context.Background())
+	cancel()
+	err = stor.AddMetricsFromSlice(ctx1, slice)
+	require.Error(t, err)
 }
 
 func TestGetAllMetricsSlice(t *testing.T) {
@@ -609,4 +670,10 @@ func TestGetAllMetricsSlice(t *testing.T) {
 	resSlice, err := stor.GetAllMetricsSlice(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, slice, resSlice)
+
+	// попытка добавить метрики, когда контекст уже отменен
+	ctx1, cancel := context.WithCancel(context.Background())
+	cancel()
+	err = stor.AddMetricsFromSlice(ctx1, slice)
+	require.Error(t, err)
 }

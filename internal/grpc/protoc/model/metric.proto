@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+option go_package = "github.com/AntonBezemskiy/go-musthave-metrics/internal/grpc/protoc/model";
+
+package go.musthave.metrics.grpc.service.model;
+
+message Metric {
+    string id = 1; // имя метрики
+    string mtype = 2; // параметр, принимающий значение gauge или counter
+    optional sint64 delta = 3; // значение метрики в случае передачи метрики типа counter 
+    optional double value = 4; // значение метрики в случае передачи метрики типа gauge
+}

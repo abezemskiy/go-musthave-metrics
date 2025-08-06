@@ -19,6 +19,7 @@ import (
 
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/errors/checker"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/mocks"
+	agentStorage "github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/storage"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/compress"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/handlers"
@@ -427,5 +428,19 @@ func TestPushBatch(t *testing.T) {
 				assert.Equal(t, true, tt.checkErrorFunction(err))
 			}
 		})
+	}
+}
+
+func TestPrepareAndPushBatch(t *testing.T) {
+	// error: storage is nil
+	{
+		err := PrepareAndPushBatch("", "", nil, nil)
+		require.Error(t, err)
+	}
+	// error: resty client is nil
+	{
+		metrics := &agentStorage.MetricsStats{}
+		err := PrepareAndPushBatch("", "", metrics, nil)
+		require.Error(t, err)
 	}
 }

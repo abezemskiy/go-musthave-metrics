@@ -21,10 +21,11 @@ var (
 	rateLimit      *int
 	cryptoKey      string
 	flagConfigFile string
+	flagProtocol   string // HTTP or GRPC
 )
 
 func parseFlags() {
-	flag.StringVar(&flagNetAddr, "a", ":8080", "address and port to run server")
+	flag.StringVar(&flagNetAddr, "a", "localhost:8080", "address and port to run server")
 
 	reportInterval = flag.Int("r", 10, "report interval")
 	pollInterval = flag.Int("p", 2, "poll interval")
@@ -33,6 +34,7 @@ func parseFlags() {
 	rateLimit = flag.Int("l", 1, "count of concurrent messages to server")
 	flag.StringVar(&cryptoKey, "crypto-key", "", "public key for asymmetric encryption")
 	flag.StringVar(&flagConfigFile, "c", "", "name of configuration file")
+	flag.StringVar(&flagProtocol, "protocol", "http", "name of using protocol, http or grpc")
 
 	flag.Parse()
 
@@ -90,6 +92,9 @@ func parseEnvironment() {
 	if envConfigFile := os.Getenv("CONFIG"); envConfigFile != "" {
 		flagConfigFile = envConfigFile
 	}
+	if envProtocol := os.Getenv("PROTOCOL"); envProtocol != "" {
+		flagProtocol = envProtocol
+	}
 }
 
 // parseConfigFile - функция для переопределения параметров конфигурации из файла конфигурации.
@@ -108,4 +113,5 @@ func parseConfigFile() {
 	*reportInterval = int(configs.ReportInterval.Duration.Seconds())
 	*pollInterval = int(configs.PollInterval.Duration.Seconds())
 	cryptoKey = configs.CryptoKey
+	flagProtocol = configs.Protocol
 }

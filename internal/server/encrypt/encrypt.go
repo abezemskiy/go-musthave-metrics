@@ -5,6 +5,9 @@ import (
 	"io"
 	"net/http"
 
+	"go.uber.org/zap"
+
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/logger"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/tools/encryption"
 )
 
@@ -24,6 +27,7 @@ func Middleware(h http.HandlerFunc) http.HandlerFunc {
 			// Чтение зашифрованного тела запроса
 			encryptedData, err := io.ReadAll(r.Body)
 			if err != nil {
+				logger.ServerLog.Error("read encrypted body error", zap.String("error", error.Error(err)))
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
@@ -31,6 +35,7 @@ func Middleware(h http.HandlerFunc) http.HandlerFunc {
 
 			decryptedData, err := cryptoGrapher.Decrypt(encryptedData)
 			if err != nil {
+				logger.ServerLog.Error("decrypt data error", zap.String("error", error.Error(err)))
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}

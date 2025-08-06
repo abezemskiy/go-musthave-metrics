@@ -10,12 +10,14 @@ import (
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/config"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/encrypt"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/hasher"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/ipfilter"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/server/saver"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/tools/encryption"
 )
 
 var (
 	flagNetAddr         string
+	flagGRPCNetAddr     string
 	flagLogLevel        string
 	flagStoreInterval   int
 	flagFileStoragePath string
@@ -24,6 +26,7 @@ var (
 	flagKey             string
 	flagCryptoKey       string
 	flagConfigFile      string
+	flagTrustedSubnet   string
 )
 
 // Определяют способ хранения метрик.
@@ -38,6 +41,7 @@ const (
 
 func parseFlags() int {
 	flag.StringVar(&flagNetAddr, "a", ":8080", "address and port to run server")
+	flag.StringVar(&flagGRPCNetAddr, "grpc-address", ":8082", "address and port to run grpc server")
 	flag.StringVar(&flagLogLevel, "l", "info", "log level")
 	// настройка флагов для хранения метрик в файле
 	flagStoreIntervalTemp := flag.Int("i", 300, "interval of saving metrics to the file")
@@ -48,6 +52,7 @@ func parseFlags() int {
 	flag.StringVar(&flagKey, "k", "", "key for hashing data")
 	flag.StringVar(&flagCryptoKey, "crypto-key", "", "private key for asymmetric encryption")
 	flag.StringVar(&flagConfigFile, "c", "", "name of configuration file")
+	flag.StringVar(&flagTrustedSubnet, "t", "", "Classless Distributed Ranging (CIDR) string representation")
 
 	flag.Parse()
 	flagStoreInterval = *flagStoreIntervalTemp
@@ -65,6 +70,7 @@ func parseFlags() int {
 	saver.SetRestore(flagRestore)
 	hasher.SetKey(flagKey)
 	encrypt.SetCryptoGrapher(encryption.Initialize("", flagCryptoKey))
+	ipfilter.SetTrustedSubnet(flagTrustedSubnet)
 
 	if flagDatabaseDsn != "" {
 		return SAVEINDATABASE
@@ -78,6 +84,9 @@ func parseFlags() int {
 func parseEnvironment() {
 	if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
 		flagNetAddr = envRunAddr
+	}
+	if envRunGRPCAddr := os.Getenv("GRPC_ADDRESS"); envRunGRPCAddr != "" {
+		flagGRPCNetAddr = envRunGRPCAddr
 	}
 	if envLogLevel := os.Getenv("SERVER_LOG_LEVEL"); envLogLevel != "" {
 		flagLogLevel = envLogLevel
@@ -111,6 +120,9 @@ func parseEnvironment() {
 	if envConfigFile := os.Getenv("CONFIG"); envConfigFile != "" {
 		flagConfigFile = envConfigFile
 	}
+	if envTrustedSubnet := os.Getenv("TRUSTED_SUBNET"); envTrustedSubnet != "" {
+		flagTrustedSubnet = envTrustedSubnet
+	}
 }
 
 // parseConfigFile - функция для переопределения параметров конфигурации из файла конфигурации.
@@ -126,9 +138,12 @@ func parseConfigFile() {
 
 	// обновляю параметры запуска
 	flagNetAddr = configs.Address
+	flagGRPCNetAddr = configs.GRPCAddress
+	flagLogLevel = configs.LogLevel
 	flagRestore = configs.Restore
 	flagStoreInterval = int(configs.StoreInterval.Duration.Seconds())
 	flagFileStoragePath = configs.StoreFile
 	flagDatabaseDsn = configs.DatabaseDSN
 	flagCryptoKey = configs.CryptoKey
+	flagTrustedSubnet = configs.TrustedSubnet
 }

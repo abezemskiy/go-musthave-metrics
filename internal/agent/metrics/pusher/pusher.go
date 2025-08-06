@@ -19,6 +19,7 @@ import (
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/metrics/config"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/agent/storage"
 	"github.com/AntonBezemskiy/go-musthave-metrics/internal/repositories"
+	"github.com/AntonBezemskiy/go-musthave-metrics/internal/tools/ipgetter"
 )
 
 // Push - отправляет метрику на сервер в JSON формате и возвращает ошибку при неудаче.
@@ -64,12 +65,20 @@ func PushJSON(address, action, typeMetric, nameMetric, valueMetric string, clien
 	logger.AgentLog.Debug("body and hash for forwarding to server ", zap.String("body", fmt.Sprintf("%x", bufEncode.Bytes())),
 		zap.String("hash", hash), zap.String("key", hasher.GetKey()))
 
+	// получаю ip адрес хоста для передачи на сервер в заголовке X-Real-IP
+	hostAddress, err := ipgetter.Get()
+	if err != nil {
+		logger.AgentLog.Error("Fail to get host ip address ", zap.String("error", error.Error(err)))
+		return err
+	}
+
 	url := fmt.Sprintf("%s/%s", address, action)
 	resp, err := client.R().
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Content-Encoding", "gzip").
 		SetHeader("Accept-Encoding", "gzip").
 		SetHeader("HashSHA256", hash).
+		SetHeader("X-Real-IP", hostAddress).
 		SetBody(compressBody).
 		Post(url)
 
@@ -118,8 +127,17 @@ func PushJSON(address, action, typeMetric, nameMetric, valueMetric string, clien
 // Push отправляет метрику на сервер и возвращает ошибку при неудаче.
 func Push(address, action, typemetric, namemetric, valuemetric string, client *resty.Client) error {
 	url := fmt.Sprintf("%s/%s/%s/%s/%s", address, action, typemetric, namemetric, valuemetric)
+
+	// получаю ip адрес хоста для передачи на сервер в заголовке X-Real-IP
+	hostAddress, err := ipgetter.Get()
+	if err != nil {
+		logger.AgentLog.Error("Fail to get host ip address ", zap.String("error", error.Error(err)))
+		return err
+	}
+
 	resp, err := client.R().
 		SetHeader("Content-Type", "text/plain").
+		SetHeader("X-Real-IP", hostAddress).
 		Post(url)
 
 	if err != nil {
@@ -192,12 +210,20 @@ func PushBatch(address, action string, metricsSlice []repositories.Metric, clien
 	logger.AgentLog.Debug("body and hash for forwarding to server ", zap.String("body", fmt.Sprintf("%x", bufEncode.Bytes())),
 		zap.String("hash", hash), zap.String("key", hasher.GetKey()))
 
+	// получаю ip адрес хоста для передачи на сервер в заголовке X-Real-IP
+	hostAddress, err := ipgetter.Get()
+	if err != nil {
+		logger.AgentLog.Error("Fail to get host ip address ", zap.String("error", error.Error(err)))
+		return err
+	}
+
 	url := fmt.Sprintf("%s/%s", address, action)
 	resp, err := client.R().
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Content-Encoding", "gzip").
 		SetHeader("Accept-Encoding", "gzip").
 		SetHeader("HashSHA256", hash).
+		SetHeader("X-Real-IP", hostAddress).
 		SetBody(compressBody).
 		SetContext(ctx).
 		Post(url)
@@ -244,24 +270,19 @@ func PushBatch(address, action string, metricsSlice []repositories.Metric, clien
 
 // PrepareAndPushBatch - строит батч метрик и вызывает функцию для отправки батча на сервер в рамках одной передачи.
 func PrepareAndPushBatch(address, action string, metrics *storage.MetricsStats, client *resty.Client) error {
+	if metrics == nil {
+		return fmt.Errorf("metrics is not initialize")
+	}
+	if client == nil {
+		return fmt.Errorf("resty client is not initialize")
+	}
+
 	metrics.Lock()
 	defer metrics.Unlock()
-	metricsSlice := make([]repositories.Metric, 0)
 
 	// создаю слайс с метриками для отправки батчем
-	for _, metricName := range storage.AllMetrics {
-		typeMetric, value, err := metrics.GetMetricString(metricName)
-		if err != nil {
-			logger.AgentLog.Error(fmt.Sprintf("Failed to get metric %s: %v\n", typeMetric, err), zap.String("action", "push metrics"))
-			continue
-		}
-		metric, err := builder.Build(typeMetric, metricName, value)
-		if err != nil {
-			logger.AgentLog.Error(fmt.Sprintf("Failed to build metric structer %s: %v\n", typeMetric, err), zap.String("action", "push metrics"))
-			continue
-		}
-		metricsSlice = append(metricsSlice, metric)
-	}
+	metricsSlice := builder.BuildSlice(metrics)
+
 	err := PushBatch(address, action, metricsSlice, client)
 	if err != nil {
 		logger.AgentLog.Error("Failed to push batch metrics", zap.String("action", "push metrics"), zap.String("error", error.Error(err)))

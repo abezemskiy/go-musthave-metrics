@@ -1,8 +1,10 @@
 {
     "address": "localhost:8082",
     "restore": true,
+    "log_level": "info",
     "store_interval": "300s",
     "store_file": "",
     "database_dsn": "host=localhost user=benchmarkmetrics password=password dbname=benchmarkmetrics sslmode=disable",
-    "crypto_key": ""
+    "crypto_key": "",
+    "trusted_subnet": ""
 }

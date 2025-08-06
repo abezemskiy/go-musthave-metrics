@@ -5,12 +5,15 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -79,118 +82,163 @@ func TestOtherRequest(t *testing.T) {
 	}
 }
 
+type errorWriter struct {
+	header     http.Header
+	StatusCode int
+}
+
+func (e *errorWriter) Write(_ []byte) (int, error) {
+	return 0, errors.New("simulated connection error")
+}
+
+func (e *errorWriter) Header() http.Header {
+	return e.header
+}
+
+func (e *errorWriter) WriteHeader(statusCode int) {
+	e.StatusCode = statusCode
+}
+
 func TestGetGlobal(t *testing.T) {
-	normalizeHTML := func(html string) string {
-		return strings.Join(strings.Fields(html), " ")
-	}
+	{
+		normalizeHTML := func(html string) string {
+			return strings.Join(strings.Fields(html), " ")
+		}
 
-	// создаём контроллер
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+		// создаём контроллер
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
-	type contextKey string
+		type contextKey string
 
-	m := mocks.NewMockMetricsReader(ctrl)
+		m := mocks.NewMockMetricsReader(ctrl)
 
-	// successfull test
-	k1 := contextKey("success")
-	v1 := "1"
-	ctx1 := context.WithValue(context.Background(), k1, v1)
+		// successfull test
+		k1 := contextKey("success")
+		v1 := "1"
+		ctx1 := context.WithValue(context.Background(), k1, v1)
 
-	metrics := "metrcis_type_first: value_first\nmetrcis_type_second: value_second\ncounter: 1"
-	m.EXPECT().GetAllMetrics(ctx1).Return(metrics, nil)
-	// Проверяем тело ответа
-	expectedBody := `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>HTML Response</title>
-</head>
-<body>
-    <pre>metrcis_type_first: value_first
-metrcis_type_second: value_second
-counter: 1</pre>
-</body>
-</html>`
+		metrics := "metrcis_type_first: value_first\nmetrcis_type_second: value_second\ncounter: 1"
+		m.EXPECT().GetAllMetrics(ctx1).Return(metrics, nil)
+		// Проверяем тело ответа
+		expectedBody := `<!DOCTYPE html>
+	<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<title>HTML Response</title>
+	</head>
+	<body>
+		<pre>metrcis_type_first: value_first
+	metrcis_type_second: value_second
+	counter: 1</pre>
+	</body>
+	</html>`
 
-	// failure test
-	k2 := contextKey("failure")
-	v2 := "2"
-	ctx2 := context.WithValue(context.Background(), k2, v2)
-	m.EXPECT().GetAllMetrics(ctx2).Return("", fmt.Errorf("something was wrong"))
+		// failure test
+		k2 := contextKey("failure")
+		v2 := "2"
+		ctx2 := context.WithValue(context.Background(), k2, v2)
+		m.EXPECT().GetAllMetrics(ctx2).Return("", fmt.Errorf("something was wrong"))
 
-	// failure test2
-	k3 := contextKey("failure2")
-	v3 := "3"
-	ctx3 := context.WithValue(context.Background(), k3, v3)
-	m.EXPECT().GetAllMetrics(ctx3).Return("", fmt.Errorf("something was wrong"))
+		// failure test2
+		k3 := contextKey("failure2")
+		v3 := "3"
+		ctx3 := context.WithValue(context.Background(), k3, v3)
+		m.EXPECT().GetAllMetrics(ctx3).Return("", fmt.Errorf("something was wrong"))
 
-	tests := []struct {
-		name           string
-		ctx            context.Context
-		wantBody       string
-		statusCode     int
-		wantChangeTmpl bool
-	}{
-		{
-			name:           "successfull get",
-			ctx:            ctx1,
-			wantBody:       strings.TrimSpace(expectedBody),
-			statusCode:     200,
-			wantChangeTmpl: false,
-		},
-		{
-			name:           "failure get",
-			ctx:            ctx2,
-			wantBody:       "",
-			statusCode:     500,
-			wantChangeTmpl: false,
-		},
-		{
-			name:           "failure get",
-			ctx:            ctx3,
-			wantBody:       strings.TrimSpace(expectedBody),
-			statusCode:     500,
-			wantChangeTmpl: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := chi.NewRouter()
-			r.Get("/test", func(res http.ResponseWriter, req *http.Request) {
-				req = req.WithContext(tt.ctx)
-				GetGlobal(res, req, m)
+		tests := []struct {
+			name           string
+			ctx            context.Context
+			wantBody       string
+			statusCode     int
+			wantChangeTmpl bool
+		}{
+			{
+				name:           "successfull get",
+				ctx:            ctx1,
+				wantBody:       strings.TrimSpace(expectedBody),
+				statusCode:     200,
+				wantChangeTmpl: false,
+			},
+			{
+				name:           "failure get",
+				ctx:            ctx2,
+				wantBody:       "",
+				statusCode:     500,
+				wantChangeTmpl: false,
+			},
+			{
+				name:           "failure get",
+				ctx:            ctx3,
+				wantBody:       strings.TrimSpace(expectedBody),
+				statusCode:     500,
+				wantChangeTmpl: true,
+			},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				r := chi.NewRouter()
+				r.Get("/test", func(res http.ResponseWriter, req *http.Request) {
+					req = req.WithContext(tt.ctx)
+					GetGlobal(res, req, m)
+				})
+
+				request := httptest.NewRequest(http.MethodGet, "/test", nil)
+
+				originalTmpl := tmpl
+				if tt.wantChangeTmpl {
+					tmpl = template.Must(template.New("test").Parse(`{{ .InvalidField }}`))
+				}
+				defer func() { tmpl = originalTmpl }()
+
+				w := httptest.NewRecorder()
+				r.ServeHTTP(w, request)
+
+				res := w.Result()
+				defer res.Body.Close() // Закрываем тело ответа
+				// проверяем код ответа
+				assert.Equal(t, tt.statusCode, res.StatusCode)
+
+				if tt.statusCode == 200 {
+					assert.Contains(t, res.Header.Get("Content-Type"), "text/html")
+
+					getBody, err := io.ReadAll(res.Body)
+					require.NoError(t, err)
+					defer res.Body.Close()
+
+					// Сравниваем обработанные документы
+					assert.Equal(t, normalizeHTML(tt.wantBody), normalizeHTML(string(getBody)))
+				} else {
+					assert.Contains(t, res.Header.Get("Content-Type"), "text/plain")
+				}
 			})
+		}
+	}
+	{
+		// создаём контроллер
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		m := mocks.NewMockMetricsReader(ctrl)
+		m.EXPECT().GetAllMetrics(gomock.Any()).Return("metrics", nil)
 
-			request := httptest.NewRequest(http.MethodGet, "/test", nil)
+		errorWriter := errorWriter{
+			header: make(http.Header, 0),
+		}
 
-			originalTmpl := tmpl
-			if tt.wantChangeTmpl {
-				tmpl = template.Must(template.New("test").Parse(`{{ .InvalidField }}`))
-			}
-			defer func() { tmpl = originalTmpl }()
-
-			w := httptest.NewRecorder()
-			r.ServeHTTP(w, request)
-
-			res := w.Result()
-			defer res.Body.Close() // Закрываем тело ответа
-			// проверяем код ответа
-			assert.Equal(t, tt.statusCode, res.StatusCode)
-
-			if tt.statusCode == 200 {
-				assert.Contains(t, res.Header.Get("Content-Type"), "text/html")
-
-				getBody, err := io.ReadAll(res.Body)
-				require.NoError(t, err)
-				defer res.Body.Close()
-
-				// Сравниваем обработанные документы
-				assert.Equal(t, normalizeHTML(tt.wantBody), normalizeHTML(string(getBody)))
-			} else {
-				assert.Contains(t, res.Header.Get("Content-Type"), "text/plain")
-			}
+		r := chi.NewRouter()
+		r.Get("/test", func(_ http.ResponseWriter, req *http.Request) {
+			GetGlobal(&errorWriter, req, m)
 		})
+
+		request := httptest.NewRequest(http.MethodGet, "/test", nil)
+
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, request)
+
+		res := w.Result()
+		defer res.Body.Close() // Закрываем тело ответа
+		// проверяем код ответа
+		assert.Equal(t, 500, errorWriter.StatusCode)
 	}
 }
 
@@ -441,7 +489,8 @@ func TestGetMetricJSON(t *testing.T) {
 		require.NoError(t, erReader)
 
 		saver.SetRestore(true)
-		saver.AddMetricsFromFile(stor, reader)
+		err = saver.AddMetricsFromFile(stor, reader)
+		require.NoError(t, err)
 
 		type want struct {
 			code        int
@@ -554,6 +603,217 @@ func TestGetMetricJSON(t *testing.T) {
 		// Удаляю тестовый файл
 		er := os.Remove(nameTestFile)
 		require.NoError(t, er)
+	}
+	// Тесты с невалидными метриками
+	{
+		// Мокирую хранилище метрик
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		m := mocks.NewMockMetricsReader(ctrl)
+
+		// Тест с невалидной counter метрикой--------------------------------
+		conter1 := repositories.Metric{
+			MType: "counter",
+			ID:    "invalid conter",
+		}
+		m.EXPECT().GetMetric(gomock.Any(), "counter", "invalid conter").Return("invalid counter delta", nil)
+
+		// Тест с невалидной gauge метрикой--------------------------------
+		gauge1 := repositories.Metric{
+			MType: "gauge",
+			ID:    "invalid gauge",
+		}
+		m.EXPECT().GetMetric(gomock.Any(), "gauge", "invalid gauge").Return("invalid gauge value", nil)
+
+		// Тест с метрикой с невалидным типом --------------------------------
+		wrongType := repositories.Metric{
+			MType: "wrong type",
+			ID:    "invalid type m",
+		}
+		m.EXPECT().GetMetric(gomock.Any(), "wrong type", "invalid type m").Return("invalid type", nil)
+
+		tests := []struct {
+			name string
+			body repositories.Metric
+			code int
+		}{
+			{
+				name: "Test wrong counter",
+				body: conter1,
+				code: 500,
+			},
+			{
+				name: "Test wrong gauge",
+				body: gauge1,
+				code: 500,
+			},
+			{
+				name: "Test wrong type",
+				body: wrongType,
+				code: 400,
+			},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				r := chi.NewRouter()
+				r.Post("/value/", func(res http.ResponseWriter, req *http.Request) {
+					GetMetricJSON(res, req, m)
+				})
+
+				// сериализую струтктуру с метриками в json
+				body, err := json.Marshal(tt.body)
+				require.NoError(t, err)
+
+				request := httptest.NewRequest(http.MethodPost, "/value/", bytes.NewBuffer(body))
+				w := httptest.NewRecorder()
+				r.ServeHTTP(w, request)
+
+				res := w.Result()
+				defer res.Body.Close() // Закрываем тело ответа
+				// проверяем код ответа
+				assert.Equal(t, tt.code, res.StatusCode)
+			})
+		}
+	}
+}
+
+func TestUpdateMetricsBatch(t *testing.T) {
+	tests := []struct {
+		name string
+		body []byte
+		stor repositories.MetricsWriter
+		code int
+	}{
+		{
+			name: "Storage is nil",
+			body: nil,
+			stor: nil,
+			code: 500,
+		},
+		{
+			name: "Invalid body",
+			body: []byte("wrong body"),
+			stor: storage.NewDefaultMemStorage(),
+			code: 500,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := chi.NewRouter()
+			r.Post("/", func(res http.ResponseWriter, req *http.Request) {
+				UpdateMetricsBatch(res, req, tt.stor)
+			})
+
+			request := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(tt.body))
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, request)
+
+			res := w.Result()
+			defer res.Body.Close() // Закрываем тело ответа
+			// проверяем код ответа
+			assert.Equal(t, tt.code, res.StatusCode)
+		})
+	}
+}
+
+type MockResponseWriter struct {
+	HeaderMap http.Header
+	Body      []byte
+	Status    int
+}
+
+func (m *MockResponseWriter) Header() http.Header {
+	if m.HeaderMap == nil {
+		m.HeaderMap = make(http.Header)
+	}
+	return m.HeaderMap
+}
+
+func (m *MockResponseWriter) Write(body []byte) (int, error) {
+	m.Body = body
+	return len(body), nil
+}
+
+func (m *MockResponseWriter) WriteHeader(statusCode int) {
+	m.Status = statusCode
+}
+
+func (m *MockResponseWriter) GetStatus() int {
+	return m.Status
+}
+
+func TestGetMetric(t *testing.T) {
+
+	// successful test#1
+	// Создаем тестовый запрос
+	req := &http.Request{
+		URL: &url.URL{},
+	}
+
+	// Добавляем параметры маршрута в контекст
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("metricType", "counter")
+	rctx.URLParams.Add("metricName", "counter_1")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	metricName := "counter_1"
+	metricValue := int64(2352)
+
+	type request struct {
+		res     http.ResponseWriter
+		req     *http.Request
+		storage repositories.MetricsReader
+	}
+	type want struct {
+		res *MockResponseWriter
+	}
+	tests := []struct {
+		name    string
+		request request
+		want    want
+	}{
+		{
+			name: "successful test#1",
+			request: request{
+				res:     &MockResponseWriter{},
+				req:     req,
+				storage: storage.NewMemStorage(map[string]float64{}, map[string]int64{metricName: metricValue}),
+			},
+			want: want{
+				res: &MockResponseWriter{
+					Status: 0,
+					Body:   []byte(strconv.FormatInt(metricValue, 10)),
+				},
+			},
+		},
+		{
+			name: "metric is not contain in storage",
+			request: request{
+				res:     &MockResponseWriter{},
+				req:     req,
+				storage: storage.NewDefaultMemStorage(),
+			},
+			want: want{
+				res: &MockResponseWriter{
+					Status: 404,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			GetMetric(tt.request.res, tt.request.req, tt.request.storage)
+
+			response := tt.request.res.(*MockResponseWriter)
+
+			assert.Equal(t, tt.want.res.GetStatus(), response.GetStatus())
+
+			if c := tt.want.res.GetStatus(); c == 0 {
+				header := response.Header()
+				assert.Equal(t, "200", header.Get("Status-Code"))
+				assert.Equal(t, len(tt.want.res.Body), len(response.Body))
+				assert.Equal(t, string(tt.want.res.Body), string(response.Body))
+			}
+		})
 	}
 }
 
@@ -704,12 +964,30 @@ func TestUpdateMetrics(t *testing.T) {
 			// проверяем код ответа
 			assert.Equal(t, tt.want.code, res.StatusCode)
 
-			wantAllSlice, errWantSlice := tt.want.storage.GetAllMetricsSlice(context.Background())
-			require.NoError(t, errWantSlice)
-			getAllSlice, errGetSlice := stor.GetAllMetricsSlice(context.Background())
-			require.NoError(t, errGetSlice)
-			deep.Equal(wantAllSlice, getAllSlice)
+			if tt.want.code == 200 {
+				wantAllSlice, errWantSlice := tt.want.storage.GetAllMetricsSlice(context.Background())
+				require.NoError(t, errWantSlice)
+				getAllSlice, errGetSlice := stor.GetAllMetricsSlice(context.Background())
+				require.NoError(t, errGetSlice)
+				deep.Equal(wantAllSlice, getAllSlice)
+			}
 		})
+	}
+	// Storage is nil test
+	{
+		r := chi.NewRouter()
+		r.Post("/update/{metricType}/{metricName}/{metricValue}", func(res http.ResponseWriter, req *http.Request) {
+			UpdateMetrics(res, req, nil)
+		})
+
+		request := httptest.NewRequest(http.MethodPost, "/update/gauge/alloc/233184", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, request)
+
+		res := w.Result()
+		defer res.Body.Close() // Закрываем тело ответа
+		// проверяем код ответа
+		assert.Equal(t, 500, res.StatusCode)
 	}
 }
 
@@ -819,6 +1097,19 @@ func TestUpdateMetricsJSON(t *testing.T) {
 				},
 			},
 			{
+				name:    "Counter errort#2",
+				request: "/update",
+				body: repositories.Metric{
+					ID:    "testcount1",
+					MType: "counter",
+				},
+				want: want{
+					code:        400,
+					contentType: "application/json",
+					storage:     storage.NewDefaultMemStorage(),
+				},
+			},
+			{
 				name:    "Guage errort#1",
 				request: "/update",
 				body: repositories.Metric{
@@ -830,6 +1121,19 @@ func TestUpdateMetricsJSON(t *testing.T) {
 					code:        400,
 					contentType: "application/json",
 					storage:     storage.NewMemStorage(map[string]float64{"testgauge1": 3, "testgauge2": 10}, map[string]int64{"testcount1": 4, "testcount2": 1}),
+				},
+			},
+			{
+				name:    "Guage errort#2",
+				request: "/update",
+				body: repositories.Metric{
+					ID:    "testguage1",
+					MType: "gauge",
+				},
+				want: want{
+					code:        400,
+					contentType: "application/json",
+					storage:     storage.NewDefaultMemStorage(),
 				},
 			},
 		}
@@ -871,6 +1175,45 @@ func TestUpdateMetricsJSON(t *testing.T) {
 
 					assert.Equal(t, tt.body, resMetric)
 				}
+			})
+		}
+	}
+	// Тесты с невалидными данными
+	{
+		tests := []struct {
+			name string
+			body []byte
+			stor repositories.MetricsWriter
+			code int
+		}{
+			{
+				name: "Storage is nil",
+				body: nil,
+				stor: nil,
+				code: 500,
+			},
+			{
+				name: "Invalid body",
+				body: []byte("wrong body"),
+				stor: storage.NewDefaultMemStorage(),
+				code: 500,
+			},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				r := chi.NewRouter()
+				r.Post("/", func(res http.ResponseWriter, req *http.Request) {
+					UpdateMetricsJSON(res, req, tt.stor)
+				})
+
+				request := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(tt.body))
+				w := httptest.NewRecorder()
+				r.ServeHTTP(w, request)
+
+				res := w.Result()
+				defer res.Body.Close() // Закрываем тело ответа
+				// проверяем код ответа
+				assert.Equal(t, tt.code, res.StatusCode)
 			})
 		}
 	}

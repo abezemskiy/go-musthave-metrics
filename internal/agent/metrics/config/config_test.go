@@ -72,10 +72,11 @@ func TestParseConfigFile(t *testing.T) {
 	testReportInterval := 21
 	testPollInterval := 3
 	testFlagCryptoKey := "test crypto key"
+	testFlagProtocol := "grpc"
 
 	createFile := func(name string) {
-		data := fmt.Sprintf("{\"address\": \"%s\",\"report_interval\": \"%ds\",\"poll_interval\": \"%ds\",\"crypto_key\": \"%s\"}",
-			testFlagNetAddr, testReportInterval, testPollInterval, testFlagCryptoKey)
+		data := fmt.Sprintf("{\"address\": \"%s\",\"report_interval\": \"%ds\",\"poll_interval\": \"%ds\",\"crypto_key\": \"%s\", \"protocol\": \"%s\"}",
+			testFlagNetAddr, testReportInterval, testPollInterval, testFlagCryptoKey, testFlagProtocol)
 		f, err := os.Create(name)
 		require.NoError(t, err)
 		_, err = f.Write([]byte(data))
@@ -91,6 +92,7 @@ func TestParseConfigFile(t *testing.T) {
 	assert.Equal(t, testReportInterval, int(configs.ReportInterval.Seconds()))
 	assert.Equal(t, testPollInterval, int(configs.PollInterval.Seconds()))
 	assert.Equal(t, testFlagCryptoKey, configs.CryptoKey)
+	assert.Equal(t, testFlagProtocol, configs.Protocol)
 
 	err = os.Remove(nameFile)
 	require.NoError(t, err)

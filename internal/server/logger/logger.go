@@ -37,9 +37,12 @@ func (r *loggingResponseWriter) WriteHeader(statusCode int) {
 }
 
 // Log будет доступен всему коду как синглтон.
-// Никакой код навыка, кроме функции InitLogger, не должен модифицировать эту переменную.
+// Никакой код, кроме функции InitLogger, не должен модифицировать эту переменную.
 // По умолчанию установлен no-op-логер, который не выводит никаких сообщений.
 var ServerLog *zap.Logger = zap.NewNop()
+
+// Log для GRPC сервера, который так-же доступен как синглтон
+var ServerGRPCLog *zap.Logger = zap.NewNop()
 
 // Initialize инициализирует синглтон логера с необходимым уровнем логирования.
 func Initialize(level string) error {
@@ -59,6 +62,15 @@ func Initialize(level string) error {
 	}
 	// устанавливаем синглтон
 	ServerLog = zl.With(zap.String("role", "server"))
+
+	// создаю лог для grpc на основе конфигурации
+	grpcZl, err := cfg.Build()
+	if err != nil {
+		return err
+	}
+	// устанавливаем синглтон
+	ServerGRPCLog = grpcZl.With(zap.String("role", "grpcServer"))
+
 	return nil
 }
 

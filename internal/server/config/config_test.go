@@ -16,10 +16,13 @@ func TestParseConfigFile(t *testing.T) {
 	testFlagFileStoragePath := "test/file/path"
 	testFlagDatabaseDsn := "test dsn"
 	testFlagCryptoKey := "test crypto key"
+	testFlagTrustedSubnet := "192.169.0.14/24"
+	testFlagGRPCNetAddr := ":9999"
 
 	createFile := func(name string) {
-		data := fmt.Sprintf("{\"address\": \"%s\",\"restore\": %t,\"store_interval\": \"%ds\",\"store_file\": \"%s\",\"database_dsn\": \"%s\",\"crypto_key\": \"%s\"}",
-			testFlagNetAddr, testFlagRestore, testFlagStoreInterval, testFlagFileStoragePath, testFlagDatabaseDsn, testFlagCryptoKey)
+		data := fmt.Sprintf("{\"address\": \"%s\",\"restore\": %t,\"store_interval\": \"%ds\",\"store_file\": \"%s\",\"database_dsn\": \"%s\",\"crypto_key\": \"%s\",\"trusted_subnet\": \"%s\", \"grpc_address\": \"%s\"}",
+			testFlagNetAddr, testFlagRestore, testFlagStoreInterval, testFlagFileStoragePath,
+			testFlagDatabaseDsn, testFlagCryptoKey, testFlagTrustedSubnet, testFlagGRPCNetAddr)
 		f, err := os.Create(name)
 		require.NoError(t, err)
 		_, err = f.Write([]byte(data))
@@ -37,6 +40,8 @@ func TestParseConfigFile(t *testing.T) {
 	assert.Equal(t, testFlagFileStoragePath, configs.StoreFile)
 	assert.Equal(t, testFlagDatabaseDsn, configs.DatabaseDSN)
 	assert.Equal(t, testFlagCryptoKey, configs.CryptoKey)
+	assert.Equal(t, testFlagTrustedSubnet, configs.TrustedSubnet)
+	assert.Equal(t, testFlagGRPCNetAddr, configs.GRPCAddress)
 
 	err = os.Remove(nameFile)
 	require.NoError(t, err)

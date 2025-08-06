@@ -58,9 +58,15 @@ func HashMiddleware(handler http.Handler) http.HandlerFunc {
 
 		// проверка подписи в случае непустого тела запроса
 		if len(body) != 0 {
-			err = repositories.CheckHash(body, reqHash, GetKey())
+			ok, err := repositories.CheckHash(body, reqHash, GetKey())
 			if err != nil {
-				logger.ServerLog.Error("hashs is not equal ", zap.String("address", req.URL.String()), zap.String("error: ", error.Error(err)))
+				logger.ServerLog.Error("checking hash error", zap.String("address", req.URL.String()), zap.String("error: ", error.Error(err)))
+
+				res.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			if !ok {
+				logger.ServerLog.Error("hashs is not equal ", zap.String("address", req.URL.String()))
 				res.WriteHeader(http.StatusBadRequest)
 				return
 			}

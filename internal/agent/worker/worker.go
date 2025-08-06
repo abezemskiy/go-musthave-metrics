@@ -34,9 +34,8 @@ func RetryExecPushFunction(address, action string, metrics *storage.MetricsStats
 			checker.IsDBTransportError(err)) ||
 			checker.IsFileLockedError(err) {
 			continue
-		} else {
-			return
 		}
+		return
 	}
 }
 
@@ -47,6 +46,7 @@ type Task struct {
 	action       string                // http метод, например: POST
 	metrics      *storage.MetricsStats // структура с собранными метриками
 	pushFunction PushFunction          // функция, непосредственно выполняющая отправку
+	restyClient  *resty.Client         // клиент resty
 }
 
 // NewTask - фабричная функция структуры Task.
@@ -56,16 +56,16 @@ func NewTask(address, action string, metrics *storage.MetricsStats, pushFunction
 		action:       action,
 		metrics:      metrics,
 		pushFunction: pushFunction,
+		restyClient:  resty.New(),
 	}
 }
 
 // Do - метод для выполнения задачи.
 func (t Task) Do() {
-	client := resty.New()
 	// Добавляем middleware для обработки ответа
-	client.OnAfterResponse(hasher.VerifyHashMiddleware)
+	t.restyClient.OnAfterResponse(hasher.VerifyHashMiddleware)
 
-	RetryExecPushFunction(t.address, t.action, t.metrics, client, t.pushFunction)
+	RetryExecPushFunction(t.address, t.action, t.metrics, t.restyClient, t.pushFunction)
 	logger.AgentLog.Debug("Running agent", zap.String("action", "push metrics"))
 }
 
